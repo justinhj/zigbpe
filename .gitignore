@@ -1,0 +1,7 @@
+# Zig build artifacts
+zig-out/
+.zig-cache/
+
+# Editor/OS-specific
+.DS_Store
+.vscode/
