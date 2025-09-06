@@ -1,14 +1,33 @@
 const std = @import("std");
 const SkippingList = @import("skipping_list").SkippingList;
 
+fn mergePairs(
+    comptime T: type,
+    comptime skip_bits: u4,
+    list: *SkippingList(T, skip_bits),
+    left: T,
+    right: T,
+    replacement: T,
+) !void {
+    var it = list.iterator();
+    while (it.next()) |current_val| {
+        const next_val = it.peek() orelse break;
+
+        if (current_val == left and next_val == right) {
+            it.replaceAndSkipNext(replacement);
+        }
+    }
+}
+
 pub fn main() !void {
     const TokenType = u32;
+    const SkipBits = 8;
     const Pair = struct {
         first: TokenType,
         second: TokenType,
 
-        pub fn init(f: TokenType, s: TokenType) Pair {
-            return Pair{
+        pub fn init(f: TokenType, s: TokenType) @This() {
+            return @This(){
                 .first = f,
                 .second = s,
             };
@@ -48,7 +67,7 @@ pub fn main() !void {
         data_as_u32[i] = b;
     }
 
-    var list = try SkippingList(u32, 8).init(allocator, data_as_u32);
+    var list = try SkippingList(u32, SkipBits).init(allocator, data_as_u32);
     defer list.deinit();
 
     const stdout = std.io.getStdOut().writer();
@@ -60,7 +79,7 @@ pub fn main() !void {
     // 3. Replace the most frequent pair with a new token
 
     const target_token_size = 512;
-    var current_token: usize = 256;
+    var current_token: TokenType = 256;
     var most_frequent_pair_frequency: usize = 0;
     var most_frequent_pair: Pair = Pair.init(0, 0);
     var freqs = std.AutoHashMap(Pair, usize).init(allocator);
@@ -68,28 +87,44 @@ pub fn main() !void {
 
     while (current_token < target_token_size) {
         var it = list.iterator();
-        const this_token = it.next();
-        if (this_token == null) break;
-        const next_token = it.peek();
-        if (next_token == null) break;
+        most_frequent_pair_frequency = 0;
+        most_frequent_pair = Pair.init(0, 0);
+        while (true) {
+            // Get the current and next tokens
+            const this_token = it.next();
+            if (this_token == null) break;
+            const next_token = it.peek();
+            if (next_token == null) break;
 
-        // Lookup the pair in the frequency map
-        const pair = Pair.init(this_token.?, next_token.?);
-        const freq_entry = freqs.get(pair);
-        var this_freq = 0;
-        if (freq_entry) |entry| {
-            this_freq = entry + 1;
-            entry.* += 1;
-        } else {
-            this_freq = 1;
-            try freqs.put(pair, 1);
+            // Lookup the pair in the frequency map
+            const pair = Pair.init(this_token.?, next_token.?);
+            const freq_entry = freqs.get(pair);
+            var this_freq: usize = 0;
+            if (freq_entry) |entry| {
+                this_freq = entry + 1;
+                try freqs.put(pair, this_freq);
+            } else {
+                this_freq = 1;
+                try freqs.put(pair, 1);
+            }
+
+            // Update the most frequent pair if needed
+            if (this_freq > most_frequent_pair_frequency) {
+                most_frequent_pair_frequency = this_freq;
+                most_frequent_pair = pair;
+            }
         }
-        most_frequent_pair_frequency = 1;
-        most_frequent_pair = Pair.init(this_token.?, next_token.?);
 
+        // do the replacement
+        mergePairs(TokenType, SkipBits, &list, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
+            try stdout.print("Error during merging pairs\n", .{});
+            break;
+        };
 
-    
+        freqs.clearRetainingCapacity();
 
+        // for debug print the most frequent pair
+        try stdout.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent_pair_frequency });
         current_token += 1;
     }
 }
