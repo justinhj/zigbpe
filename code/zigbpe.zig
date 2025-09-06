@@ -28,7 +28,13 @@ pub fn main() !void {
 
     // Just an example of using the skipping list
     // We'll treat the file contents as a u32 array for this example
-    const data_as_u32 = std.mem.bytesAsSlice(u32, contents);
+    const data_as_u32 = try allocator.alloc(u32, file_size);
+    defer allocator.free(data_as_u32);
+
+    for (contents, 0..) |b, i| {
+        data_as_u32[i] = b;
+    }
+
     var list = try SkippingList(u32, 8).init(allocator, data_as_u32);
     defer list.deinit();
 
