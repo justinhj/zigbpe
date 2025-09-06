@@ -19,5 +19,7 @@ This file provides instructions for AI agents working on this Zig codebase.
   - `PascalCase` for types (structs, enums, unions).
   - `snake_case` for variables and functions.
   - `UPPER_SNAKE_CASE` for constants.
-- **Error Handling:** Use `try` and `catch` for functions that can fail. Avoid returning nullable pointers for error conditions.
+- **Error Handling:** Use `try` and `catch` for functions that can fail. Use `defer` for cleanup.
+- **Memory Management:** Use allocators explicitly. Free memory with `defer` when appropriate.
+- **Comptime:** Use `comptime` for compile-time operations and type-level programming.
 - **Comments:** Use `//` for single-line comments. Add comments to explain complex logic, not to restate what the code does.
