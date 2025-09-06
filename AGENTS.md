@@ -2,6 +2,14 @@
 
 This file provides instructions for AI agents working on this Zig codebase.
 
+## Program purpose
+This is a Zig implementation of the BPE algorithm for tokenizing text for an LLM.
+
+## Zig info 
+We require and use Zig version 0.14.1
+
+Please bear in mind the version when checking online documentation and answering the users question.
+
 ## Build, Lint, and Test Commands
 
 - **Build:** `zig build`

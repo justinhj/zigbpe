@@ -40,4 +40,18 @@ pub fn main() !void {
 
     const stdout = std.io.getStdOut().writer();
     try stdout.print("File size: {d} bytes, SkippingList size: {d}\n", .{ file_size, list.get_size() });
+
+    // Steps
+    // 1. Set up the main loop with the target token size
+    // 2. Loop over the data counting frequencies and keep the most frequent pair
+    // 3. Replace the most frequent pair with a new token
+
+    const target_token_size = 512;
+    var current_token: usize = 256;
+    var freqs = std.AutoHashMap(u32, []const u8).init(allocator);
+    defer freqs.deinit();
+
+    while (current_token < target_token_size) {
+        current_token += 1;
+    }
 }
