@@ -127,4 +127,6 @@ pub fn main() !void {
         try stdout.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent_pair_frequency });
         current_token += 1;
     }
+
+    try stdout.print("File size: {d} bytes, SkippingList size: {d}\n", .{ file_size, list.get_size() });
 }
