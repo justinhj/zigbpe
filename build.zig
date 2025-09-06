@@ -6,10 +6,15 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "zigbpe",
-        .root_source_file = b.path("zigbpe.zig"),
+        .root_source_file = b.path("code/zigbpe.zig"),
         .target = target,
         .optimize = optimize,
     });
+
+    const skipping_list_module = b.addModule("skipping_list", .{
+        .root_source_file = b.path("code/skipping_list.zig"),
+    });
+    exe.root_module.addImport("skipping_list", skipping_list_module);
 
     b.installArtifact(exe);
 

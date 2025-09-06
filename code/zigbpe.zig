@@ -1,4 +1,5 @@
 const std = @import("std");
+const SkippingList = @import("skipping_list").SkippingList;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -25,6 +26,12 @@ pub fn main() !void {
 
     _ = try file.reader().readAll(contents);
 
+    // Just an example of using the skipping list
+    // We'll treat the file contents as a u32 array for this example
+    const data_as_u32 = std.mem.bytesAsSlice(u32, contents);
+    var list = try SkippingList(u32, 8).init(allocator, data_as_u32);
+    defer list.deinit();
+
     const stdout = std.io.getStdOut().writer();
-    try stdout.print("{d}\n", .{file_size});
+    try stdout.print("File size: {d} bytes, SkippingList size: {d}\n", .{ file_size, list.get_size() });
 }
