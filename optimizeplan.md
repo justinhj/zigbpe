@@ -9,10 +9,10 @@ The change the rest of the loop to pull the most frequent pair and merge it.
 This will reduce the number of iterations of the main loop and make it much faster.
 
 ## Progress tracker
-[ ] Pull the pair counting out of the main loop
-[ ] Use a priority queue to track the most frequent pairs
-[ ] Change the main loop to pull the most frequent pair and merge it
-[ ] Ensure the code still builds and runs
+[X] Pull the pair counting out of the main loop
+[X] Use a priority queue to track the most frequent pairs
+[X] Change the main loop to pull the most frequent pair and merge it
+[X] Ensure the code still builds and runs
 
 
 

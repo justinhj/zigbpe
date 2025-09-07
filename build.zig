@@ -16,6 +16,11 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("skipping_list", skipping_list_module);
 
+    const binaryheap_module = b.addModule("binaryheap", .{
+        .root_source_file = b.path("code/binaryheap.zig"),
+    });
+    exe.root_module.addImport("binaryheap", binaryheap_module);
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

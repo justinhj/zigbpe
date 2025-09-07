@@ -1,5 +1,6 @@
 const std = @import("std");
 const SkippingList = @import("skipping_list").SkippingList;
+const binaryHeap = @import("binaryheap");
 
 fn mergePairs(
     comptime T: type,
@@ -87,21 +88,23 @@ pub fn main() !void {
         count: usize,
     };
 
-    const Compare = struct {
-        pub fn compareFn(_: void, a: PairCount, b: PairCount) std.math.Order {
-            const compare_count = std.math.order(b.count, a.count);
-            if (compare_count != .eq) return compare_count
-            else {
-                if (a.pair.first != b.pair.first) {
-                    return std.math.order(b.pair.first, a.pair.first);
-                } else {
-                    return std.math.order(b.pair.second, a.pair.second);
-                }
-            }
+    const ComparePairCount = struct {
+        pub fn lessThan(a: PairCount, b: PairCount) bool {
+          const compare_count = std.math.order(a.count, b.count);
+          if (compare_count == .gt) return true
+          else {
+              if (a.pair.first != b.pair.first) {
+                  return a.pair.first > b.pair.first;
+              } else {
+                  return a.pair.second > b.pair.second;
+              }
+          }
+          return false;
         }
     };
 
-    var priority_queue = std.PriorityQueue(PairCount, void, Compare.compareFn).init(allocator, {});
+
+    var priority_queue = try binaryHeap.BinaryHeap(PairCount).initCapacity(allocator, file_size, ComparePairCount.lessThan);
     defer priority_queue.deinit();
 
     // HashMap for tracking pair frequencies
@@ -130,28 +133,29 @@ pub fn main() !void {
     // Step 2: Populate priority queue with initial frequencies
     var freq_iter = freqs.iterator();
     while (freq_iter.next()) |entry| {
-        try priority_queue.add(.{ .pair = entry.key_ptr.*, .count = entry.value_ptr.* });
+        try priority_queue.insert(.{ .pair = entry.key_ptr.*, .count = entry.value_ptr.* });
     }
 
     // Step 3: Main loop - process most frequent pairs
     while (current_token < target_token_size and priority_queue.count() > 0) {
-        const top_pair = priority_queue.remove();
+        const top_pair = priority_queue.extractMin();
+        if (top_pair == null) break;
 
         // Skip if this pair no longer exists (was merged)
-        if (freqs.get(top_pair.pair)) |count| {
+        if (freqs.get(top_pair.?.pair)) |count| {
             if (count == 0) continue;
 
             // Do the replacement
-            mergePairs(TokenType, SkipBits, &list, top_pair.pair.first, top_pair.pair.second, current_token) catch {
+            mergePairs(TokenType, SkipBits, &list, top_pair.?.pair.first, top_pair.?.pair.second, current_token) catch {
                 try stdout.print("Error during merging pairs\n", .{});
                 break;
             };
 
             // Update frequencies after merging
             // This is a simplified approach - in practice, we'd need to recalculate affected pairs
-            try freqs.put(top_pair.pair, 0); // Mark as merged
+            try freqs.put(top_pair.?.pair, 0); // Mark as merged
 
-            try stdout.print("Merged pair: ({d}, {d}) with frequency {d}\n", .{ top_pair.pair.first, top_pair.pair.second, top_pair.count });
+            try stdout.print("Merged pair: ({d}, {d}) with frequency {d}\n", .{ top_pair.?.pair.first, top_pair.?.pair.second, top_pair.?.count });
             current_token += 1;
         }
     }
