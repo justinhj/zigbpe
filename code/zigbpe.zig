@@ -90,16 +90,13 @@ pub fn main() !void {
 
     const ComparePairCount = struct {
         pub fn lessThan(a: PairCount, b: PairCount) bool {
-          const compare_count = std.math.order(a.count, b.count);
-          if (compare_count == .gt) return true
-          else {
-              if (a.pair.first != b.pair.first) {
-                  return a.pair.first > b.pair.first;
-              } else {
-                  return a.pair.second > b.pair.second;
-              }
-          }
-          return false;
+            if (a.count != b.count) {
+                return a.count > b.count;
+            }
+            if (a.pair.first != b.pair.first) {
+                return a.pair.first > b.pair.first;
+            }
+            return a.pair.second > b.pair.second;
         }
     };
 
