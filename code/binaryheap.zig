@@ -139,6 +139,11 @@ pub fn BinaryHeap(comptime Child: type) type {
             return self.items.items[0];
         }
 
+        // Clears all the values, effectively emptying the queue.
+        pub fn clear(self: *Self) void {
+            self.items.clearRetainingCapacity();
+        }
+
         pub fn count(self: *Self) usize {
             return self.items.items.len;
         }

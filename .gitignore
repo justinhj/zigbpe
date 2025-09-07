@@ -5,3 +5,4 @@ zig-out/
 # Editor/OS-specific
 .DS_Store
 .vscode/
+*.model

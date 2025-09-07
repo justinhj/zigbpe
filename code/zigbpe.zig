@@ -21,21 +21,36 @@ fn mergePairs(
     }
 }
 
-pub fn main() !void {
-    const TokenType = u32;
-    const SkipBits = 8;
-    const Pair = struct {
-        first: TokenType,
-        second: TokenType,
+const TokenType = u32;
+const SkipBits = 8;
+const Pair = struct {
+    first: TokenType,
+    second: TokenType,
 
-        pub fn init(f: TokenType, s: TokenType) @This() {
-            return @This(){
-                .first = f,
-                .second = s,
-            };
+    pub fn init(f: TokenType, s: TokenType) @This() {
+        return @This(){
+            .first = f,
+            .second = s,
+        };
+    }
+};
+const PairCount = struct {
+    pair: Pair,
+    count: usize,
+};
+
+const ComparePairCount = struct {
+    pub fn lessThan(a: PairCount, b: PairCount) bool {
+        if (a.count != b.count) {
+            return a.count > b.count;
         }
-    };
-
+        if (a.pair.first != b.pair.first) {
+            return a.pair.first < b.pair.first;
+        }
+        return a.pair.second < b.pair.second;
+    }
+};
+pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
@@ -84,22 +99,6 @@ pub fn main() !void {
     var current_token: TokenType = 256;
 
     // Priority queue for tracking most frequent pairs
-    const PairCount = struct {
-        pair: Pair,
-        count: usize,
-    };
-
-    const ComparePairCount = struct {
-        pub fn lessThan(a: PairCount, b: PairCount) bool {
-            if (a.count != b.count) {
-                return a.count > b.count;
-            }
-            if (a.pair.first != b.pair.first) {
-                return a.pair.first > b.pair.first;
-            }
-            return a.pair.second > b.pair.second;
-        }
-    };
 
     var priority_queue = try binaryHeap.BinaryHeap(PairCount).initCapacity(allocator, file_size, ComparePairCount.lessThan);
     defer priority_queue.deinit();
@@ -174,4 +173,16 @@ pub fn main() !void {
     const elapsed_nanoseconds = end_time - start_time;
     std.debug.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds, std.time.ns_per_ms)});
     try stdout.print("File size: {d} bytes, SkippingList size: {d}\n", .{ file_size, list.get_size() });
+
+    // Write the model file
+    const model_file_name = try std.fmt.allocPrint(allocator, "{s}.model", .{std.fs.path.basename(file_path)});
+    defer allocator.free(model_file_name);
+    const model_file = try std.fs.cwd().createFile(model_file_name, .{ .truncate = true });
+    defer model_file.close();
+    var model_writer = model_file.writer();
+    // Print the header as minbpe expects
+    try model_writer.print("minbpe v1\n\n0\n", .{});
+    for (tokens.items) |token| {
+        try model_writer.print("{d} {d}\n", .{ token.first, token.second });
+    }
 }
