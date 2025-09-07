@@ -12,8 +12,10 @@ Please bear in mind the version when checking online documentation and answering
 
 ## Build, Lint, and Test Commands
 
+Note there are no tests yet.
+
 - **Build:** `zig build`
-- **Run:** `zig build run`
+- **Run:** `zig build run -- ./data/taylorswift.txt`
 - **Test:** `zig build test`
 - **Run a single test:** `zig build test --test-filter "your test name"`
 - **Format/Lint:** `zig fmt .` (run from the root directory)

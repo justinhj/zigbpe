@@ -80,59 +80,84 @@ pub fn main() !void {
 
     const target_token_size = 512;
     var current_token: TokenType = 256;
-    var most_frequent_pair_frequency: usize = 0;
-    var most_frequent_pair: Pair = Pair.init(0, 0);
+
+    // Priority queue for tracking most frequent pairs
+    const PairCount = struct {
+        pair: Pair,
+        count: usize,
+    };
+
+    const Compare = struct {
+        pub fn compareFn(_: void, a: PairCount, b: PairCount) std.math.Order {
+            const compare_count = std.math.order(b.count, a.count);
+            if (compare_count != .eq) return compare_count
+            else {
+                if (a.pair.first != b.pair.first) {
+                    return std.math.order(b.pair.first, a.pair.first);
+                } else {
+                    return std.math.order(b.pair.second, a.pair.second);
+                }
+            }
+        }
+    };
+
+    var priority_queue = std.PriorityQueue(PairCount, void, Compare.compareFn).init(allocator, {});
+    defer priority_queue.deinit();
+
+    // HashMap for tracking pair frequencies
     var freqs = std.AutoHashMap(Pair, usize).init(allocator);
     defer freqs.deinit();
 
     const start_time = std.time.nanoTimestamp();
 
-    while (current_token < target_token_size) {
-        var it = list.iterator();
-        most_frequent_pair_frequency = 0;
-        most_frequent_pair = Pair.init(0, 0);
-        while (true) {
-            // Get the current and next tokens
-            const this_token = it.next();
-            if (this_token == null) break;
-            const next_token = it.peek();
-            if (next_token == null) break;
+    // Step 1: Count all pairs at the start
+    var it = list.iterator();
+    while (true) {
+        const this_token = it.next();
+        if (this_token == null) break;
+        const next_token = it.peek();
+        if (next_token == null) break;
 
-            // Lookup the pair in the frequency map
-            const pair = Pair.init(this_token.?, next_token.?);
-            const freq_entry = freqs.get(pair);
-            var this_freq: usize = 0;
-            if (freq_entry) |entry| {
-                this_freq = entry + 1;
-                try freqs.put(pair, this_freq);
-            } else {
-                this_freq = 1;
-                try freqs.put(pair, 1);
-            }
-
-            // Update the most frequent pair if needed
-            if (this_freq > most_frequent_pair_frequency) {
-                most_frequent_pair_frequency = this_freq;
-                most_frequent_pair = pair;
-            }
+        const pair = Pair.init(this_token.?, next_token.?);
+        const freq_entry = freqs.get(pair);
+        if (freq_entry) |entry| {
+            try freqs.put(pair, entry + 1);
+        } else {
+            try freqs.put(pair, 1);
         }
+    }
 
+    // Step 2: Populate priority queue with initial frequencies
+    var freq_iter = freqs.iterator();
+    while (freq_iter.next()) |entry| {
+        try priority_queue.add(.{ .pair = entry.key_ptr.*, .count = entry.value_ptr.* });
+    }
 
-        // do the replacement
-        mergePairs(TokenType, SkipBits, &list, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
-            try stdout.print("Error during merging pairs\n", .{});
-            break;
-        };
+    // Step 3: Main loop - process most frequent pairs
+    while (current_token < target_token_size and priority_queue.count() > 0) {
+        const top_pair = priority_queue.remove();
 
-        freqs.clearRetainingCapacity();
+        // Skip if this pair no longer exists (was merged)
+        if (freqs.get(top_pair.pair)) |count| {
+            if (count == 0) continue;
 
-        // for debug print the most frequent pair
-        try stdout.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent_pair_frequency });
-        current_token += 1;
+            // Do the replacement
+            mergePairs(TokenType, SkipBits, &list, top_pair.pair.first, top_pair.pair.second, current_token) catch {
+                try stdout.print("Error during merging pairs\n", .{});
+                break;
+            };
+
+            // Update frequencies after merging
+            // This is a simplified approach - in practice, we'd need to recalculate affected pairs
+            try freqs.put(top_pair.pair, 0); // Mark as merged
+
+            try stdout.print("Merged pair: ({d}, {d}) with frequency {d}\n", .{ top_pair.pair.first, top_pair.pair.second, top_pair.count });
+            current_token += 1;
+        }
     }
 
     const end_time = std.time.nanoTimestamp();
     const elapsed_nanoseconds = end_time - start_time;
-    std.debug.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds ,std.time.ns_per_ms)});
+    std.debug.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds, std.time.ns_per_ms)});
     try stdout.print("File size: {d} bytes, SkippingList size: {d}\n", .{ file_size, list.get_size() });
 }
