@@ -114,31 +114,32 @@ pub fn main() !void {
 
     const start_time = std.time.nanoTimestamp();
 
-    // Step 1: Count all pairs at the start
-    var it = list.iterator();
-    while (true) {
-        const this_token = it.next();
-        if (this_token == null) break;
-        const next_token = it.peek();
-        if (next_token == null) break;
-
-        const pair = Pair.init(this_token.?, next_token.?);
-        const freq_entry = freqs.get(pair);
-        if (freq_entry) |entry| {
-            try freqs.put(pair, entry + 1);
-        } else {
-            try freqs.put(pair, 1);
-        }
-    }
-
-    // Step 2: Populate priority queue with initial frequencies
-    var freq_iter = freqs.iterator();
-    while (freq_iter.next()) |entry| {
-        _ = try priority_queue.insert(.{ .pair = entry.key_ptr.*, .count = entry.value_ptr.* });
-    }
-
     // Step 3: Main loop - process most frequent pairs
-    while (current_token < target_token_size and priority_queue.count() > 0) {
+    while (current_token < target_token_size) {
+
+        // Step 1: Count all pairs at the start
+        var it = list.iterator();
+        while (true) {
+            const this_token = it.next();
+            if (this_token == null) break;
+            const next_token = it.peek();
+            if (next_token == null) break;
+
+            const pair = Pair.init(this_token.?, next_token.?);
+            const freq_entry = freqs.get(pair);
+            if (freq_entry) |entry| {
+                try freqs.put(pair, entry + 1);
+            } else {
+                try freqs.put(pair, 1);
+            }
+        }
+
+        // Step 2: Populate priority queue with initial frequencies
+        var freq_iter = freqs.iterator();
+        while (freq_iter.next()) |entry| {
+            _ = try priority_queue.insert(.{ .pair = entry.key_ptr.*, .count = entry.value_ptr.* });
+        }
+
         const extract_min = priority_queue.extractMin();
         if (extract_min == null) break;
 
@@ -163,6 +164,10 @@ pub fn main() !void {
             try stdout.print("Merged pair: ({d}, {d}) with frequency {d}\n", .{ pair_to_merge.first, pair_to_merge.second, extract_min.?.min_value.count });
             current_token += 1;
         }
+        // Clear priority queue for next iteration
+        priority_queue.clear();
+        // Clear the frequency map for next iteration
+        freqs.clearRetainingCapacity();
     }
 
     const end_time = std.time.nanoTimestamp();
