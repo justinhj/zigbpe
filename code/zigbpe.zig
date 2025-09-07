@@ -85,6 +85,8 @@ pub fn main() !void {
     var freqs = std.AutoHashMap(Pair, usize).init(allocator);
     defer freqs.deinit();
 
+    const start_time = std.time.nanoTimestamp();
+
     while (current_token < target_token_size) {
         var it = list.iterator();
         most_frequent_pair_frequency = 0;
@@ -115,6 +117,7 @@ pub fn main() !void {
             }
         }
 
+
         // do the replacement
         mergePairs(TokenType, SkipBits, &list, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
             try stdout.print("Error during merging pairs\n", .{});
@@ -128,5 +131,8 @@ pub fn main() !void {
         current_token += 1;
     }
 
+    const end_time = std.time.nanoTimestamp();
+    const elapsed_nanoseconds = end_time - start_time;
+    std.debug.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds ,std.time.ns_per_ms)});
     try stdout.print("File size: {d} bytes, SkippingList size: {d}\n", .{ file_size, list.get_size() });
 }
