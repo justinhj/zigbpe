@@ -245,3 +245,26 @@ test "With custom struct" {
     try testing.expect(heap.extractMin().?.min_value.score == 5);
     try testing.expect(heap.extractMin().?.min_value.score == 8);
 }
+
+const TokenType = u32;
+const Pair = struct {
+    first: TokenType,
+    second: TokenType,
+
+    pub fn init(f: TokenType, s: TokenType) @This() {
+        return @This(){
+            .first = f,
+            .second = s,
+        };
+    }
+};
+
+const PairCount = struct {
+    pair: Pair,
+    count: usize,
+};
+
+test "Indexed heap functionality" {
+
+
+}
