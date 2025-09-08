@@ -191,57 +191,57 @@ test "Basic" {
     try testing.expect(heap.extractMin() == null);
 }
 
-// test "Expand capacity" {
-//     var heap = try BinaryHeap(i32).init(testing.allocator, 5, i32LessThan);
-//     defer heap.deinit();
+test "Expand capacity" {
+    var heap = try BinaryHeap(i32).initCapacity(testing.allocator, 5, i32LessThan);
+    defer heap.deinit();
 
-//     try heap.insert(10);
-//     try heap.insert(5);
-//     try heap.insert(20);
-//     try heap.insert(12);
-//     try heap.insert(7);
-//     try heap.insert(8);
-//     try heap.insert(17);
-//     try heap.insert(5);
-//     try heap.insert(22);
+    _ = try heap.insert(10);
+    _ = try heap.insert(5);
+    _ = try heap.insert(20);
+    _ = try heap.insert(12);
+    _ = try heap.insert(7);
+    _ = try heap.insert(8);
+    _ = try heap.insert(17);
+    _ = try heap.insert(5);
+    _ = try heap.insert(22);
 
-//     try testing.expect(heap.extractMin().?.min_value == 5);
-//     try testing.expect(heap.extractMin().?.min_value == 5);
-//     try testing.expect(heap.extractMin().?.min_value == 7);
-//     try testing.expect(heap.extractMin().?.min_value == 8);
-//     try testing.expect(heap.extractMin().?.min_value == 10);
-//     try testing.expect(heap.extractMin().?.min_value == 12);
-//     try testing.expect(heap.extractMin().?.min_value == 17);
-//     try testing.expect(heap.extractMin().?.min_value == 20);
-//     try testing.expect(heap.extractMin().?.min_value == 22);
-//     try testing.expect(heap.extractMin() == null);
-// }
+    try testing.expect(heap.extractMin().?.min_value == 5);
+    try testing.expect(heap.extractMin().?.min_value == 5);
+    try testing.expect(heap.extractMin().?.min_value == 7);
+    try testing.expect(heap.extractMin().?.min_value == 8);
+    try testing.expect(heap.extractMin().?.min_value == 10);
+    try testing.expect(heap.extractMin().?.min_value == 12);
+    try testing.expect(heap.extractMin().?.min_value == 17);
+    try testing.expect(heap.extractMin().?.min_value == 20);
+    try testing.expect(heap.extractMin().?.min_value == 22);
+    try testing.expect(heap.extractMin() == null);
+}
 
-// const Coord = struct {
-//     row: i32,
-//     col: i32,
-// };
+const Coord = struct {
+    row: i32,
+    col: i32,
+};
 
-// const fScoreEntry = struct {
-//     coord: Coord,
-//     score: i32,
-// };
+const fScoreEntry = struct {
+    coord: Coord,
+    score: i32,
+};
 
-// fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
-//     return a.score < b.score;
-// }
+fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
+    return a.score < b.score;
+}
 
-// test "With custom struct" {
-//     var heap = try BinaryHeap(fScoreEntry).initCapacity(testing.allocator, 5, fScoreLessThan);
-//     defer heap.deinit();
+test "With custom struct" {
+    var heap = try BinaryHeap(fScoreEntry).initCapacity(testing.allocator, 5, fScoreLessThan);
+    defer heap.deinit();
 
-//     try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 10 });
-//     try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 5 });
-//     try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 20 });
-//     try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 25 });
-//     try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 12 });
-//     try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 8 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 10 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 5 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 20 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 25 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 12 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 8 });
 
-//     try testing.expect(heap.extractMin().?.min_value.score == 5);
-//     try testing.expect(heap.extractMin().?.min_value.score == 8);
-// }
+    try testing.expect(heap.extractMin().?.min_value.score == 5);
+    try testing.expect(heap.extractMin().?.min_value.score == 8);
+}
