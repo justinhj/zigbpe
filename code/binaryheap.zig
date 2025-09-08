@@ -156,43 +156,40 @@ fn i32LessThan(a: i32, b: i32) bool {
     return a < b;
 }
 
-// TODO: The tests below need to be updated to reflect the new API of
-// insert, extractMin, and the addition of modify.
+test "Basic" {
+    var heap = try BinaryHeap(i32).initCapacity(testing.allocator, 10, i32LessThan);
+    defer heap.deinit();
 
-// test "Basic" {
-//     var heap = try BinaryHeap(i32).init(testing.allocator, 10, i32LessThan);
-//     defer heap.deinit();
+    _ = try heap.insert(10);
+    _ = try heap.insert(5);
+    _ = try heap.insert(20);
+    _ = try heap.insert(12);
+    _ = try heap.insert(7);
+    _ = try heap.insert(8);
+    _ = try heap.insert(17);
+    _ = try heap.insert(5);
+    _ = try heap.insert(22);
 
-//     try heap.insert(10);
-//     try heap.insert(5);
-//     try heap.insert(20);
-//     try heap.insert(12);
-//     try heap.insert(7);
-//     try heap.insert(8);
-//     try heap.insert(17);
-//     try heap.insert(5);
-//     try heap.insert(22);
+    try testing.expect(heap.extractMin().?.min_value == 5);
+    try testing.expect(heap.extractMin().?.min_value == 5);
+    try testing.expect(heap.extractMin().?.min_value == 7);
+    try testing.expect(heap.extractMin().?.min_value == 8);
+    try testing.expect(heap.extractMin().?.min_value == 10);
+    try testing.expect(heap.extractMin().?.min_value == 12);
+    try testing.expect(heap.extractMin().?.min_value == 17);
+    try testing.expect(heap.extractMin().?.min_value == 20);
+    try testing.expect(heap.extractMin().?.min_value == 22);
+    try testing.expect(heap.extractMin() == null);
 
-//     try testing.expect(heap.extractMin().?.min_value == 5);
-//     try testing.expect(heap.extractMin().?.min_value == 5);
-//     try testing.expect(heap.extractMin().?.min_value == 7);
-//     try testing.expect(heap.extractMin().?.min_value == 8);
-//     try testing.expect(heap.extractMin().?.min_value == 10);
-//     try testing.expect(heap.extractMin().?.min_value == 12);
-//     try testing.expect(heap.extractMin().?.min_value == 17);
-//     try testing.expect(heap.extractMin().?.min_value == 20);
-//     try testing.expect(heap.extractMin().?.min_value == 22);
-//     try testing.expect(heap.extractMin() == null);
+    _ = try heap.insert(10);
+    _ = try heap.insert(5);
+    _ = try heap.insert(20);
 
-//     try heap.insert(10);
-//     try heap.insert(5);
-//     try heap.insert(20);
-
-//     try testing.expect(heap.extractMin().?.min_value == 5);
-//     try testing.expect(heap.extractMin().?.min_value == 10);
-//     try testing.expect(heap.extractMin().?.min_value == 20);
-//     try testing.expect(heap.extractMin() == null);
-// }
+    try testing.expect(heap.extractMin().?.min_value == 5);
+    try testing.expect(heap.extractMin().?.min_value == 10);
+    try testing.expect(heap.extractMin().?.min_value == 20);
+    try testing.expect(heap.extractMin() == null);
+}
 
 // test "Expand capacity" {
 //     var heap = try BinaryHeap(i32).init(testing.allocator, 5, i32LessThan);
