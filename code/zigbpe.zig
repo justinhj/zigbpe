@@ -1,5 +1,6 @@
 const std = @import("std");
 const SkippingList = @import("skipping_list").SkippingList;
+const IndexedPriorityQueue = @import("indexed_priority_queue");
 
 fn mergePairs(
     comptime T: type,
@@ -58,8 +59,6 @@ pub fn main() !void {
 
     _ = try file.reader().readAll(contents);
 
-    // Just an example of using the skipping list
-    // We'll treat the file contents as a u32 array for this example
     const data_as_u32 = try allocator.alloc(u32, file_size);
     defer allocator.free(data_as_u32);
 
@@ -86,6 +85,8 @@ pub fn main() !void {
     defer freqs.deinit();
 
     const start_time = std.time.nanoTimestamp();
+    const ipq = IndexedPriorityQueue(u32, usize).init(allocator);
+    defer ipq.deinit();
 
     while (current_token < target_token_size) {
         var it = list.iterator();
