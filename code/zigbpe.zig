@@ -20,20 +20,25 @@ fn mergePairs(
     }
 }
 
-pub fn main() !void {
-    const TokenType = u32;
-    const SkipBits = 8;
-    const Pair = struct {
-        first: TokenType,
-        second: TokenType,
+const TokenType = u32;
+const SkipBits = 8;
+const Pair = struct {
+    first: TokenType,
+    second: TokenType,
 
-        pub fn init(f: TokenType, s: TokenType) @This() {
-            return @This(){
-                .first = f,
-                .second = s,
-            };
-        }
-    };
+    pub fn init(f: TokenType, s: TokenType) @This() {
+        return @This(){
+            .first = f,
+            .second = s,
+        };
+    }
+};
+
+fn maxHeapComparator(_: void, a: usize, b: usize) bool {
+    return a > b;
+}
+
+pub fn main() !void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -79,45 +84,49 @@ pub fn main() !void {
 
     const target_token_size = 512;
     var current_token: TokenType = 256;
-    var most_frequent_pair_frequency: usize = 0;
-    var most_frequent_pair: Pair = Pair.init(0, 0);
-    var freqs = std.AutoHashMap(Pair, usize).init(allocator);
-    defer freqs.deinit();
 
     const start_time = std.time.nanoTimestamp();
-    const ipq = IndexedPriorityQueue(u32, usize).init(allocator);
+
+    // Key - pair
+    // Value - frequency
+    const IntIntMaxIPQ = IndexedPriorityQueue.IndexedPriorityQueue(Pair, usize, void, maxHeapComparator);
+
+    // Create an instance of the IPQ.
+    var ipq = IntIntMaxIPQ.init(allocator, {});
     defer ipq.deinit();
 
     while (current_token < target_token_size) {
         var it = list.iterator();
-        most_frequent_pair_frequency = 0;
-        most_frequent_pair = Pair.init(0, 0);
-        while (true) {
-            // Get the current and next tokens
-            const this_token = it.next();
-            if (this_token == null) break;
-            const next_token = it.peek();
-            if (next_token == null) break;
 
-            // Lookup the pair in the frequency map
-            const pair = Pair.init(this_token.?, next_token.?);
-            const freq_entry = freqs.get(pair);
-            var this_freq: usize = 0;
-            if (freq_entry) |entry| {
-                this_freq = entry + 1;
-                try freqs.put(pair, this_freq);
-            } else {
-                this_freq = 1;
-                try freqs.put(pair, 1);
-            }
+        // When there's only one pair or less we cannot continue
+        if(list.get_size() < 2) {
+            break;
+        }
+        
+        // When the ipq is empty it means we need to count the frequencies
+        // TODO just always do it for now
+        if(true or ipq.isEmpty()) {
+            while (true) {
+                // Get the current and next tokens
+                const this_token = it.next();
+                if (this_token == null) break;
+                const next_token = it.peek();
+                if (next_token == null) break;
 
-            // Update the most frequent pair if needed
-            if (this_freq > most_frequent_pair_frequency) {
-                most_frequent_pair_frequency = this_freq;
-                most_frequent_pair = pair;
+                const pair = Pair.init(this_token.?, next_token.?);
+                const freq_entry = ipq.get(pair);
+
+                if (freq_entry) |entry| {
+                    _ = try ipq.changeValue(pair, entry.value + 1);
+                } else {
+                    _ = try ipq.push(pair, 1);
+                }
             }
         }
 
+        // Get the most frequent pair
+        const most_frequent = try ipq.pop();
+        const most_frequent_pair = most_frequent.key;
 
         // do the replacement
         mergePairs(TokenType, SkipBits, &list, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
@@ -125,10 +134,10 @@ pub fn main() !void {
             break;
         };
 
-        freqs.clearRetainingCapacity();
+        // freqs.clearRetainingCapacity();
 
         // for debug print the most frequent pair
-        try stdout.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent_pair_frequency });
+        try stdout.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent.value });
         current_token += 1;
     }
 

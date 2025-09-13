@@ -1,0 +1,19 @@
+.{
+    .name = .zigbpe,
+    .version = "0.0.1",
+    .dependencies = .{
+        .indexed_priority_queue = .{
+            .url = "git+https://github.com/justinhj/indexed_priority_queue.git#a61dbb460339e82bd79650235b8257b8b110959f",
+            .hash = "indexed_priority_queue-0.0.4-zqbye8AwAADqszORa3ewG4hAXTUiHbKT2urDjx34bf-1",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "code",
+        "README.md",
+        ".gitignore",
+        "AGENTS.md",
+    },
+    .fingerprint = 0x701ca6ed642c4c17,
+}
