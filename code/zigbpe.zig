@@ -1,5 +1,4 @@
 const std = @import("std");
-// No longer needed: const SkippingList = @import("skipping_list").SkippingList;
 const IndexedPriorityQueue = @import("indexed_priority_queue");
 
 /// Helper function to incrementally update pair frequencies in the IPQ.
@@ -183,6 +182,7 @@ pub fn main() !void {
     defer ipq.deinit();
 
     while (current_token < target_token_size) {
+        const step_start_time = std.time.nanoTimestamp();
         // When there's only one pair or less we cannot continue
         if (list.len < 2) {
             break;
@@ -190,6 +190,7 @@ pub fn main() !void {
 
         // When the ipq is empty it means we need to do a full iteration and count the frequencies
         if (ipq.isEmpty()) {
+            const initial_count_start_time = std.time.nanoTimestamp();
             try stdout.print("Initial count\n", .{});
             var current_node = list.first;
             while (current_node) |node| {
@@ -206,6 +207,9 @@ pub fn main() !void {
                 }
                 current_node = node.next;
             }
+            const initial_count_end_time = std.time.nanoTimestamp();
+            const initial_count_elapsed_nanoseconds = initial_count_end_time - initial_count_start_time;
+            try stdout.print("Initial count time elapsed: {} ms\n", .{@divTrunc(initial_count_elapsed_nanoseconds, std.time.ns_per_ms)});
         }
 
         // Get the most frequent pair
@@ -221,6 +225,10 @@ pub fn main() !void {
         // debug print the most frequent pair
         try stdout.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent.value });
         current_token += 1;
+
+        const step_end_time = std.time.nanoTimestamp();
+        const step_elapsed_nanoseconds = step_end_time - step_start_time;
+        try stdout.print("Step time elapsed: {} ms\n", .{@divTrunc(step_elapsed_nanoseconds, std.time.ns_per_ms)});
     }
 
     const end_time = std.time.nanoTimestamp();
