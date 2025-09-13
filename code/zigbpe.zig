@@ -6,10 +6,12 @@ fn mergePairs(
     comptime T: type,
     comptime skip_bits: u4,
     list: *SkippingList(T, skip_bits),
+    ipq: *IndexedPriorityQueue.IndexedPriorityQueue(Pair, usize, void, maxHeapComparator),
     left: T,
     right: T,
     replacement: T,
 ) !void {
+    _ = ipq;
     var it = list.iterator();
     while (it.next()) |current_val| {
         const next_val = it.peek() orelse break;
@@ -96,16 +98,15 @@ pub fn main() !void {
     defer ipq.deinit();
 
     while (current_token < target_token_size) {
-        var it = list.iterator();
 
         // When there's only one pair or less we cannot continue
         if(list.get_size() < 2) {
             break;
         }
         
-        // When the ipq is empty it means we need to count the frequencies
-        // TODO just always do it for now
-        if(true or ipq.isEmpty()) {
+        // When the ipq is empty it means we need to do a full iteration and count the frequencies
+        if(ipq.isEmpty()) {
+            var it = list.iterator();
             while (true) {
                 // Get the current and next tokens
                 const this_token = it.next();
@@ -128,15 +129,13 @@ pub fn main() !void {
         const most_frequent = try ipq.pop();
         const most_frequent_pair = most_frequent.key;
 
-        // do the replacement
-        mergePairs(TokenType, SkipBits, &list, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
+        // do the replacement and modify the ipq as we go
+        mergePairs(TokenType, SkipBits, &list, &ipq, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
             try stdout.print("Error during merging pairs\n", .{});
             break;
         };
 
-        // freqs.clearRetainingCapacity();
-
-        // for debug print the most frequent pair
+        // debug print the most frequent pair
         try stdout.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent.value });
         current_token += 1;
     }
