@@ -2,6 +2,36 @@ const std = @import("std");
 const SkippingList = @import("skipping_list").SkippingList;
 const IndexedPriorityQueue = @import("indexed_priority_queue");
 
+/// Helper function to incrementally update pair frequencies in the IPQ.
+/// It handles adding, incrementing, and decrementing pair counts.
+fn updateFrequency(
+    ipq: *IndexedPriorityQueue.IndexedPriorityQueue(Pair, usize, void, maxHeapComparator),
+    pair: Pair,
+    delta: i64,
+) !void {
+    const entry = ipq.get(pair);
+    if (entry) |e| {
+        // The pair already exists in the queue, so we'll modify its value.
+        const freq: i64 = @intCast(e.value);
+        const new_freq: i64 = freq + delta;
+
+        if (new_freq > 0) {
+            _ = try ipq.changeValue(pair, @intCast(new_freq));
+        } else {
+            // NOTE: The provided IPQ API lacks a 'remove' function. Ideally, a pair
+            // whose frequency drops to zero should be removed. We'll set its frequency
+            // to 0, which should cause it to sink in the max-heap and not be selected.
+            _ = try ipq.changeValue(pair, 0);
+        }
+    } else if (delta > 0) {
+        // The pair is new and we're adding it (e.g., creating (P, Z)).
+        _ = try ipq.push(pair, @intCast(delta));
+    }
+    // If the pair doesn't exist and delta is negative, we do nothing, which is correct.
+}
+
+/// Iterates through the list, merges all occurrences of the pair (left, right) into
+/// a new `replacement` token, and incrementally updates the pair frequency queue.
 fn mergePairs(
     comptime T: type,
     comptime skip_bits: u4,
@@ -11,13 +41,52 @@ fn mergePairs(
     right: T,
     replacement: T,
 ) !void {
-    _ = ipq;
     var it = list.iterator();
-    while (it.next()) |current_val| {
-        const next_val = it.peek() orelse break;
+    var prev_val: ?T = null;
 
-        if (current_val == left and next_val == right) {
-            it.replaceAndSkipNext(replacement);
+    // We iterate manually to correctly update `prev_val` after a merge occurs.
+    while (it.next()) |current_val| {
+        // Peek at the next token to see if it forms our target pair.
+        const next_val_opt = it.peek();
+
+        if (next_val_opt) |next_val| {
+            if (current_val == left and next_val == right) {
+                // Match found! Sequence: (prev_val?, current_val, next_val, ...)
+
+                // 1. Decrement frequency of the pair on the left: (prev_val, left)
+                if (prev_val) |pv| {
+                    try updateFrequency(ipq, Pair.init(pv, left), -1);
+                }
+
+                // 2. Perform the merge. This replaces `current_val` with `replacement`
+                // and removes `next_val`. The iterator is now at the `replacement` node.
+                it.replaceAndSkipNext(replacement);
+
+                // 3. Get the token that followed the original pair.
+                const next_next_val = it.peek();
+
+                // 4. Update frequencies for right-side and newly created pairs.
+                if (next_next_val) |nnv| {
+                    // Decrement the old pair on the right: (right, next_next_val)
+                    try updateFrequency(ipq, Pair.init(right, nnv), -1);
+                    // Increment the new pair on the right: (replacement, next_next_val)
+                    try updateFrequency(ipq, Pair.init(replacement, nnv), 1);
+                }
+                if (prev_val) |pv| {
+                    // Increment the new pair on the left: (prev_val, replacement)
+                    try updateFrequency(ipq, Pair.init(pv, replacement), 1);
+                }
+
+                // 5. The new `replacement` token is now the "previous" token for the next iteration.
+                prev_val = replacement;
+
+            } else {
+                // No match, just advance prev_val normally.
+                prev_val = current_val;
+            }
+        } else {
+            // Reached the end of the list.
+            prev_val = current_val;
         }
     }
 }
