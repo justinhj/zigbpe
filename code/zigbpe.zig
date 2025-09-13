@@ -1,5 +1,5 @@
 const std = @import("std");
-const SkippingList = @import("skipping_list").SkippingList;
+// No longer needed: const SkippingList = @import("skipping_list").SkippingList;
 const IndexedPriorityQueue = @import("indexed_priority_queue");
 
 /// Helper function to incrementally update pair frequencies in the IPQ.
@@ -34,65 +34,70 @@ fn updateFrequency(
 /// a new `replacement` token, and incrementally updates the pair frequency queue.
 fn mergePairs(
     comptime T: type,
-    comptime skip_bits: u4,
-    list: *SkippingList(T, skip_bits),
+    list: *std.DoublyLinkedList(T),
+    allocator: std.mem.Allocator,
     ipq: *IndexedPriorityQueue.IndexedPriorityQueue(Pair, usize, void, maxHeapComparator),
     left: T,
     right: T,
     replacement: T,
 ) !void {
-    var it = list.iterator();
-    var prev_val: ?T = null;
+    var prev_node: ?*std.DoublyLinkedList(T).Node = null;
+    var current_node = list.first;
 
-    // We iterate manually to correctly update `prev_val` after a merge occurs.
-    while (it.next()) |current_val| {
-        // Peek at the next token to see if it forms our target pair.
-        const next_val_opt = it.peek();
+    while (current_node) |node| {
+        // Peek at the next node to see if it forms our target pair.
+        const next_node_opt = node.next;
 
-        if (next_val_opt) |next_val| {
-            if (current_val == left and next_val == right) {
-                // Match found! Sequence: (prev_val?, current_val, next_val, ...)
+        if (next_node_opt) |next_node| {
+            if (node.data == left and next_node.data == right) {
+                // Match found! Sequence: (prev_node?, node, next_node, ...)
 
-                // 1. Decrement frequency of the pair on the left: (prev_val, left)
-                if (prev_val) |pv| {
-                    try updateFrequency(ipq, Pair.init(pv, left), -1);
+                // 1. Decrement frequency of the pair on the left: (prev_node.data, left)
+                if (prev_node) |pn| {
+                    try updateFrequency(ipq, Pair.init(pn.data, left), -1);
                 }
 
-                // 2. Perform the merge. This replaces `current_val` with `replacement`
-                // and removes `next_val`. The iterator is now at the `replacement` node.
-                it.replaceAndSkipNext(replacement);
+                // 2. Perform the merge. This replaces `node.data` with `replacement`
+                // and removes `next_node`.
+                const node_to_remove = next_node;
+                const next_next_node = node_to_remove.next;
 
-                // 3. Get the token that followed the original pair.
-                const next_next_val = it.peek();
+                // Remove and free the next node
+                list.remove(node_to_remove);
+                allocator.destroy(node_to_remove);
 
-                // 4. Update frequencies for right-side and newly created pairs.
-                if (next_next_val) |nnv| {
-                    // Decrement the old pair on the right: (right, next_next_val)
-                    try updateFrequency(ipq, Pair.init(right, nnv), -1);
-                    // Increment the new pair on the right: (replacement, next_next_val)
-                    try updateFrequency(ipq, Pair.init(replacement, nnv), 1);
+                // Replace the data in the current node
+                node.data = replacement;
+
+                // 3. & 4. Update frequencies for right-side and newly created pairs.
+                if (next_next_node) |nnn| {
+                    // Decrement the old pair on the right: (right, next_next_node.data)
+                    try updateFrequency(ipq, Pair.init(right, nnn.data), -1);
+                    // Increment the new pair on the right: (replacement, next_next_node.data)
+                    try updateFrequency(ipq, Pair.init(replacement, nnn.data), 1);
                 }
-                if (prev_val) |pv| {
-                    // Increment the new pair on the left: (prev_val, replacement)
-                    try updateFrequency(ipq, Pair.init(pv, replacement), 1);
+                if (prev_node) |pn| {
+                    // Increment the new pair on the left: (prev_node.data, replacement)
+                    try updateFrequency(ipq, Pair.init(pn.data, replacement), 1);
                 }
 
-                // 5. The new `replacement` token is now the "previous" token for the next iteration.
-                prev_val = replacement;
-
+                // 5. The current `node` (now containing `replacement`) is the "previous"
+                // node for the next iteration.
+                prev_node = node;
+                current_node = next_next_node; // Move iterator to the node after the removed one
             } else {
-                // No match, just advance prev_val normally.
-                prev_val = current_val;
+                // No match, just advance normally.
+                prev_node = node;
+                current_node = node.next;
             }
         } else {
-            // Reached the end of the list.
-            prev_val = current_val;
+            // Reached the end of the list. No more pairs to check.
+            current_node = null;
         }
     }
 }
 
 const TokenType = u32;
-const SkipBits = 8;
 const Pair = struct {
     first: TokenType,
     second: TokenType,
@@ -110,7 +115,6 @@ fn maxHeapComparator(_: void, a: usize, b: usize) bool {
 }
 
 pub fn main() !void {
-
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
@@ -142,11 +146,23 @@ pub fn main() !void {
         data_as_u32[i] = b;
     }
 
-    var list = try SkippingList(u32, SkipBits).init(allocator, data_as_u32);
-    defer list.deinit();
+    var list = std.DoublyLinkedList(TokenType){};
+    // Defer freeing all nodes that were allocated for the list.
+    defer {
+        while (list.popFirst()) |node| {
+            allocator.destroy(node);
+        }
+    }
+
+    // Manually create nodes and append them to the list.
+    for (data_as_u32) |token| {
+        const node = try allocator.create(std.DoublyLinkedList(TokenType).Node);
+        node.* = .{ .data = token };
+        list.append(node);
+    }
 
     const stdout = std.io.getStdOut().writer();
-    try stdout.print("File size: {d} bytes, SkippingList size: {d}\n", .{ file_size, list.get_size() });
+    try stdout.print("File size: {d} bytes, DoublyLinkedList size: {d}\n", .{ file_size, list.len });
 
     // Steps
     // 1. Set up the main loop with the target token size
@@ -167,31 +183,28 @@ pub fn main() !void {
     defer ipq.deinit();
 
     while (current_token < target_token_size) {
-
         // When there's only one pair or less we cannot continue
-        if(list.get_size() < 2) {
+        if (list.len < 2) {
             break;
         }
-        
+
         // When the ipq is empty it means we need to do a full iteration and count the frequencies
-        if(ipq.isEmpty()) {
+        if (ipq.isEmpty()) {
             try stdout.print("Initial count\n", .{});
-            var it = list.iterator();
-            while (true) {
-                // Get the current and next tokens
-                const this_token = it.next();
-                if (this_token == null) break;
-                const next_token = it.peek();
-                if (next_token == null) break;
+            var current_node = list.first;
+            while (current_node) |node| {
+                // Get the current and next tokens by looking at the next node
+                if (node.next) |next_node| {
+                    const pair = Pair.init(node.data, next_node.data);
+                    const freq_entry = ipq.get(pair);
 
-                const pair = Pair.init(this_token.?, next_token.?);
-                const freq_entry = ipq.get(pair);
-
-                if (freq_entry) |entry| {
-                    _ = try ipq.changeValue(pair, entry.value + 1);
-                } else {
-                    _ = try ipq.push(pair, 1);
+                    if (freq_entry) |entry| {
+                        _ = try ipq.changeValue(pair, entry.value + 1);
+                    } else {
+                        _ = try ipq.push(pair, 1);
+                    }
                 }
+                current_node = node.next;
             }
         }
 
@@ -200,7 +213,7 @@ pub fn main() !void {
         const most_frequent_pair = most_frequent.key;
 
         // do the replacement and modify the ipq as we go
-        mergePairs(TokenType, SkipBits, &list, &ipq, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
+        mergePairs(TokenType, &list, allocator, &ipq, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
             try stdout.print("Error during merging pairs\n", .{});
             break;
         };
@@ -212,6 +225,6 @@ pub fn main() !void {
 
     const end_time = std.time.nanoTimestamp();
     const elapsed_nanoseconds = end_time - start_time;
-    std.debug.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds ,std.time.ns_per_ms)});
-    try stdout.print("File size: {d} bytes, SkippingList size: {d}\n", .{ file_size, list.get_size() });
+    std.debug.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds, std.time.ns_per_ms)});
+    try stdout.print("File size: {d} bytes, DoublyLinkedList size: {d}\n", .{ file_size, list.len });
 }
