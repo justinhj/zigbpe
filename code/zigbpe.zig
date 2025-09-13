@@ -175,6 +175,7 @@ pub fn main() !void {
         
         // When the ipq is empty it means we need to do a full iteration and count the frequencies
         if(ipq.isEmpty()) {
+            try stdout.print("Initial count\n", .{});
             var it = list.iterator();
             while (true) {
                 // Get the current and next tokens
