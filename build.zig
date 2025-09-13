@@ -11,16 +11,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const skipping_list_module = b.addModule("skipping_list", .{
-        .root_source_file = b.path("code/skipping_list.zig"),
-    });
-    exe.root_module.addImport("skipping_list", skipping_list_module);
-
-    // const ipq_dep = b.dependency("justinhj/indexed_priority_queue", .{});
-    // const ipq_module = ipq_dep.module("indexed_priority_queue");
-    // exe.root_module.addImport("indexed_priority_queue", ipq_module);
-
-    // b.installArtifact(exe);
     const ipq_dep = b.dependency("indexed_priority_queue", .{
         .target = target,
         .optimize = optimize,
