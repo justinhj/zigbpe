@@ -169,11 +169,11 @@ pub fn main() !void {
 
     _ = try file.reader().readAll(contents);
 
-    const data_as_u32 = try allocator.alloc(u32, file_size);
-    defer allocator.free(data_as_u32);
+    const data_as_token = try allocator.alloc(TokenType, file_size);
+    defer allocator.free(data_as_token);
 
     for (contents, 0..) |b, i| {
-        data_as_u32[i] = b;
+        data_as_token[i] = b;
     }
 
     var list = std.DoublyLinkedList(TokenType){};
@@ -185,7 +185,7 @@ pub fn main() !void {
     }
 
     // Manually create nodes and append them to the list.
-    for (data_as_u32) |token| {
+    for (data_as_token) |token| {
         const node = try allocator.create(std.DoublyLinkedList(TokenType).Node);
         node.* = .{ .data = token };
         list.append(node);
