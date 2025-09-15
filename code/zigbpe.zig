@@ -225,6 +225,16 @@ pub fn main() !void {
                     } else {
                         _ = try ipq.push(pair, 1);
                     }
+
+                    // Also update the pair_occurrences map
+                    const locations_map_ptr = pair_occurrences.getPtr(pair);
+                    if (locations_map_ptr) |loc_map| {
+                        try loc_map.put(node, {});
+                    } else {
+                        var new_loc_map = std.AutoHashMap(*Node, void).init(allocator);
+                        try new_loc_map.put(node, {});
+                        try pair_occurrences.put(pair, new_loc_map);
+                    }
                 }
                 current_node = node.next;
             }

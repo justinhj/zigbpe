@@ -10,14 +10,14 @@ This map will store each unique pair and a corresponding data structure that hol
 
 Actions
 
-[ ] 1. Add the new data structures
+[X] 1. Add the new data structures
 
 const Node = std.DoublyLinkedList(TokenType).Node;
 var pair_occurrences = std.AutoHashMap(Pair, std.AutoHashMap(*Node, void));
 
 Should go at the beginning of the program just before the main loop
 
-[ ] 2. Initial population
+[X] 2. Initial population
 
 During the initial frequency count, as you find each pair (A, B) starting at node, you not only increment its count in the IPQ but also add node to its set of occurrences in pair_occurrences.
 
