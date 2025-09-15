@@ -21,7 +21,7 @@ Should go at the beginning of the program just before the main loop
 
 During the initial frequency count, as you find each pair (A, B) starting at node, you not only increment its count in the IPQ but also add node to its set of occurrences in pair_occurrences.
 
-[ ] 3. Update part
+[X] 3. Update part
 
 Optimized mergePairs: The new mergePairs function no longer needs to iterate through the list at all. It will:
 

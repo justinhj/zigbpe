@@ -36,64 +36,85 @@ fn mergePairs(
     list: *std.DoublyLinkedList(T),
     allocator: std.mem.Allocator,
     ipq: *IndexedPriorityQueue.IndexedPriorityQueue(Pair, usize, void, maxHeapComparator),
+    pair_occurrences: *std.AutoHashMap(Pair, std.AutoHashMap(*Node, void)),
     left: T,
     right: T,
     replacement: T,
 ) !void {
-    var prev_node: ?*std.DoublyLinkedList(T).Node = null;
-    var current_node = list.first;
+    const pair_to_merge = Pair.init(left, right);
+    const locations_map = pair_occurrences.get(pair_to_merge) orelse return;
 
-    while (current_node) |node| {
-        // Peek at the next node to see if it forms our target pair.
-        const next_node_opt = node.next;
+    var locations_to_process = std.ArrayList(*Node).init(allocator);
+    defer locations_to_process.deinit();
+    var iter = locations_map.keyIterator();
+    while (iter.next()) |node_ptr| {
+        try locations_to_process.append(node_ptr.*);
+    }
 
-        if (next_node_opt) |next_node| {
-            if (node.data == left and next_node.data == right) {
-                // Match found! Sequence: (prev_node?, node, next_node, ...)
+    for (locations_to_process.items) |node| {
+        if (node.next == null or node.data != left or node.next.?.data != right) {
+            continue;
+        }
 
-                // 1. Decrement frequency of the pair on the left: (prev_node.data, left)
-                if (prev_node) |pn| {
-                    try updateFrequency(ipq, Pair.init(pn.data, left), -1);
-                }
+        const prev_node = node.prev;
+        const next_node = node.next.?;
+        const next_next_node = next_node.next;
 
-                // 2. Perform the merge. This replaces `node.data` with `replacement`
-                // and removes `next_node`.
-                const node_to_remove = next_node;
-                const next_next_node = node_to_remove.next;
-
-                // Remove and free the next node
-                list.remove(node_to_remove);
-                allocator.destroy(node_to_remove);
-
-                // Replace the data in the current node
-                node.data = replacement;
-
-                // 3. & 4. Update frequencies for right-side and newly created pairs.
-                if (next_next_node) |nnn| {
-                    // Decrement the old pair on the right: (right, next_next_node.data)
-                    try updateFrequency(ipq, Pair.init(right, nnn.data), -1);
-                    // Increment the new pair on the right: (replacement, next_next_node.data)
-                    try updateFrequency(ipq, Pair.init(replacement, nnn.data), 1);
-                }
-                if (prev_node) |pn| {
-                    // Increment the new pair on the left: (prev_node.data, replacement)
-                    try updateFrequency(ipq, Pair.init(pn.data, replacement), 1);
-                }
-
-                // 5. The current `node` (now containing `replacement`) is the "previous"
-                // node for the next iteration.
-                prev_node = node;
-                current_node = next_next_node; // Move iterator to the node after the removed one
-            } else {
-                // No match, just advance normally.
-                prev_node = node;
-                current_node = node.next;
+        // 1. Update destroyed pairs
+        if (prev_node) |pn| {
+            const old_pair = Pair.init(pn.data, left);
+            try updateFrequency(ipq, old_pair, -1);
+            if (pair_occurrences.getPtr(old_pair)) |loc_map| {
+                _ = loc_map.remove(pn);
             }
-        } else {
-            // Reached the end of the list. No more pairs to check.
-            current_node = null;
+        }
+        if (next_next_node) |nnn| {
+            const old_pair = Pair.init(right, nnn.data);
+            try updateFrequency(ipq, old_pair, -1);
+            if (pair_occurrences.getPtr(old_pair)) |loc_map| {
+                _ = loc_map.remove(next_node);
+            }
+        }
+
+        // 2. Merge
+        node.data = replacement;
+        list.remove(next_node);
+        allocator.destroy(next_node);
+
+        // 3. Update created pairs
+        if (prev_node) |pn| {
+            const new_pair = Pair.init(pn.data, replacement);
+            try updateFrequency(ipq, new_pair, 1);
+            const locations_map_ptr = pair_occurrences.getPtr(new_pair);
+            if (locations_map_ptr) |loc_map| {
+                try loc_map.put(pn, {});
+            } else {
+                var new_loc_map = std.AutoHashMap(*Node, void).init(allocator);
+                errdefer new_loc_map.deinit();
+                try new_loc_map.put(pn, {});
+                try pair_occurrences.put(new_pair, new_loc_map);
+            }
+        }
+        if (next_next_node) |nnn| {
+            const new_pair = Pair.init(replacement, nnn.data);
+            try updateFrequency(ipq, new_pair, 1);
+            const locations_map_ptr = pair_occurrences.getPtr(new_pair);
+            if (locations_map_ptr) |loc_map| {
+                try loc_map.put(node, {});
+            } else {
+                var new_loc_map = std.AutoHashMap(*Node, void).init(allocator);
+                errdefer new_loc_map.deinit();
+                try new_loc_map.put(node, {});
+                try pair_occurrences.put(new_pair, new_loc_map);
+            }
         }
     }
+
+    // 4. Remove merged pair from occurrences map
+    if (pair_occurrences.getPtr(pair_to_merge)) |loc_map| {
+        loc_map.deinit();
+    }
+    _ = pair_occurrences.remove(pair_to_merge);
 }
 
 const TokenType = u32;
@@ -248,7 +269,7 @@ pub fn main() !void {
         const most_frequent_pair = most_frequent.key;
 
         // do the replacement and modify the ipq as we go
-        mergePairs(TokenType, &list, allocator, &ipq, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
+        mergePairs(TokenType, &list, allocator, &ipq, &pair_occurrences, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
             try stdout.print("Error during merging pairs\n", .{});
             break;
         };
