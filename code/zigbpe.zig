@@ -97,6 +97,8 @@ fn mergePairs(
 }
 
 const TokenType = u32;
+const Node = std.DoublyLinkedList(TokenType).Node;
+
 const Pair = struct {
     first: TokenType,
     second: TokenType,
@@ -188,6 +190,17 @@ pub fn main() !void {
     // Create an instance of the IPQ.
     var ipq = IntIntMaxIPQ.init(allocator, {});
     defer ipq.deinit();
+
+    const PairOccurrencesMap = std.AutoHashMap(Pair, std.AutoHashMap(*Node, void));
+    var pair_occurrences = PairOccurrencesMap.init(allocator);
+    defer {
+        // We need to deinit the inner hashmaps too
+        var it = pair_occurrences.iterator();
+        while (it.next()) |entry| {
+            entry.value_ptr.deinit();
+        }
+        pair_occurrences.deinit();
+    }
 
     while (current_token < target_token_size) {
         const step_start_time = std.time.nanoTimestamp();

@@ -1,0 +1,37 @@
+This is a plan to optimize the zigbpe program.
+
+The primary bottleneck in the implementation is that mergePairs performs a full scan of the entire token list for every single merge operation. If your list has a million tokens, you iterate through all of them just to replace a few hundred occurrences of the most frequent pair. This leads to a complexity that is roughly proportional to (Vocabulary Increases * List Length), which can be very slow.
+
+Goal: Eliminate Full Scans with a Locations Map
+
+Instead of searching the entire list for the pair to merge, you should know exactly where every instance of every pair is. You can achieve this by introducing a new data structure: a "locations map."
+
+This map will store each unique pair and a corresponding data structure that holds pointers to every node where that pair begins.
+
+Actions
+
+[ ] 1. Add the new data structures
+
+const Node = std.DoublyLinkedList(TokenType).Node;
+var pair_occurrences = std.AutoHashMap(Pair, std.AutoHashMap(*Node, void));
+
+Should go at the beginning of the program just before the main loop
+
+[ ] 2. Initial population
+
+During the initial frequency count, as you find each pair (A, B) starting at node, you not only increment its count in the IPQ but also add node to its set of occurrences in pair_occurrences.
+
+[ ] 3. Update part
+
+Optimized mergePairs: The new mergePairs function no longer needs to iterate through the list at all. It will:
+
+Take the most frequent pair, (left, right).
+
+Look up this pair in pair_occurrences to get the set of all its locations.
+
+Iterate through this (much smaller) set of nodes.
+
+For each location, perform the merge and, crucially, update the IPQ and pair_occurrences for the two pairs that are affected by the merge (the one to the left and the one to the right).
+
+
+
