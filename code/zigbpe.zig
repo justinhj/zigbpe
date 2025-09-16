@@ -114,7 +114,7 @@ fn maxHeapComparator(_: void, a: usize, b: usize) bool {
 }
 
 pub fn main() !void {
- // 1. Create a backing allocator
+    // 1. Create a backing allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const backing_allocator = gpa.allocator();
@@ -122,7 +122,7 @@ pub fn main() !void {
     // 2. Create the Arena and its state
     var arena_state = std.heap.ArenaAllocator.init(backing_allocator);
     defer arena_state.deinit();
-    
+
     // 3. This is the allocator you will now use for all nodes and temporary allocations
     const allocator = arena_state.allocator();
 
@@ -144,7 +144,8 @@ pub fn main() !void {
     const contents = try allocator.alloc(u8, file_size);
     defer allocator.free(contents);
 
-    _ = try file.reader().readAll(contents);
+    var reader = file.reader(contents);
+    _ = try reader.read(contents);
 
     const data_as_u32 = try allocator.alloc(u32, file_size);
     defer allocator.free(data_as_u32);
@@ -153,7 +154,7 @@ pub fn main() !void {
         data_as_u32[i] = b;
     }
 
-    var list = std.DoublyLinkedList(TokenType){};
+    var list : std.DoublyLinkedList = .{};
     // Defer freeing all nodes that were allocated for the list.
     defer {
         while (list.popFirst()) |node| {
@@ -163,7 +164,7 @@ pub fn main() !void {
 
     // Manually create nodes and append them to the list.
     for (data_as_u32) |token| {
-        const node = try allocator.create(std.DoublyLinkedList(TokenType).Node);
+        const node = try allocator.create(.{});
         node.* = .{ .data = token };
         list.append(node);
     }
