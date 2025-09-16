@@ -4,11 +4,15 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const exe = b.addExecutable(.{
-        .name = "zigbpe",
+    const module = b.createModule(.{
         .root_source_file = b.path("code/zigbpe.zig"),
         .target = target,
         .optimize = optimize,
+    });
+
+    const exe = b.addExecutable(.{
+        .name = "zigbpe",
+        .root_module = module,
     });
 
     const ipq_dep = b.dependency("indexed_priority_queue", .{
