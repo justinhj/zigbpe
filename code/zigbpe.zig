@@ -164,7 +164,7 @@ pub fn main() !void {
 
     // Manually create nodes and append them to the list.
     for (data_as_u32) |token| {
-        const node = try allocator.create(.{});
+        const node = try allocator.create(std.DoublyLinkedList.Node);
         node.* = .{ .data = token };
         list.append(node);
     }
