@@ -3,8 +3,8 @@
     .version = "0.0.1",
     .dependencies = .{
         .indexed_priority_queue = .{
-            .url = "git+https://github.com/justinhj/indexed_priority_queue.git#a61dbb460339e82bd79650235b8257b8b110959f",
-            .hash = "indexed_priority_queue-0.0.4-zqbye8AwAADqszORa3ewG4hAXTUiHbKT2urDjx34bf-1",
+            .url = "git+https://github.com/justinhj/indexed_priority_queue.git#c5be608fdfa12f30bc448e258df92f8936b7aa86",
+            .hash = "indexed_priority_queue-0.0.5-zqbyeysxAACPfd52n6soK4zwiN_3NrgfBX0w4fcORqvt",
         },
     },
     .paths = .{

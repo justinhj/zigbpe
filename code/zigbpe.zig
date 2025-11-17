@@ -1,9 +1,16 @@
 const std = @import("std");
 const IndexedPriorityQueue = @import("indexed_priority_queue");
 
+// Type to use for our DL list of nodes
+const N = struct {
+    data: u32,
+    node: std.DoublyLinkedList.Node,
+};
+
 /// Helper function to incrementally update pair frequencies in the IPQ.
 /// It handles adding, incrementing, and decrementing pair counts.
 fn updateFrequency(
+    allocator: std.mem.Allocator,
     ipq: *IndexedPriorityQueue.IndexedPriorityQueue(Pair, usize, void, maxHeapComparator),
     pair: Pair,
     delta: i64,
@@ -24,7 +31,7 @@ fn updateFrequency(
         }
     } else if (delta > 0) {
         // The pair is new and we're adding it (e.g., creating (P, Z)).
-        _ = try ipq.push(pair, @intCast(delta));
+        _ = try ipq.push(allocator, pair, @intCast(delta));
     }
     // If the pair doesn't exist and delta is negative, we do nothing, which is correct.
 }
@@ -33,32 +40,35 @@ fn updateFrequency(
 /// a new `replacement` token, and incrementally updates the pair frequency queue.
 fn mergePairs(
     comptime T: type,
-    list: *std.DoublyLinkedList(T),
+    list: *std.DoublyLinkedList,
     allocator: std.mem.Allocator,
     ipq: *IndexedPriorityQueue.IndexedPriorityQueue(Pair, usize, void, maxHeapComparator),
     left: T,
     right: T,
     replacement: T,
 ) !void {
-    var prev_node: ?*std.DoublyLinkedList(T).Node = null;
+    var prev_node: ?*std.DoublyLinkedList.Node = null;
     var current_node = list.first;
 
-    while (current_node) |node| {
+    while (current_node) |dl_node| {
+        const node: *N = @fieldParentPtr("node", dl_node);
         // Peek at the next node to see if it forms our target pair.
-        const next_node_opt = node.next;
+        const next_node_opt = dl_node.next;
 
-        if (next_node_opt) |next_node| {
+        if (next_node_opt) |next_dl_node| {
+            const next_node: *N = @fieldParentPtr("node", next_dl_node);
             if (node.data == left and next_node.data == right) {
                 // Match found! Sequence: (prev_node?, node, next_node, ...)
 
                 // 1. Decrement frequency of the pair on the left: (prev_node.data, left)
-                if (prev_node) |pn| {
-                    try updateFrequency(ipq, Pair.init(pn.data, left), -1);
+                if (prev_node) |dl_pn| {
+                    const pn: *N = @fieldParentPtr("node", dl_pn);
+                    try updateFrequency(allocator, ipq, Pair.init(pn.data, left), -1);
                 }
 
                 // 2. Perform the merge. This replaces `node.data` with `replacement`
                 // and removes `next_node`.
-                const node_to_remove = next_node;
+                const node_to_remove = next_dl_node;
                 const next_next_node = node_to_remove.next;
 
                 // Remove and free the next node
@@ -69,25 +79,27 @@ fn mergePairs(
                 node.data = replacement;
 
                 // 3. & 4. Update frequencies for right-side and newly created pairs.
-                if (next_next_node) |nnn| {
+                if (next_next_node) |dl_nnn| {
+                    const nnn: *N = @fieldParentPtr("node", dl_nnn);
                     // Decrement the old pair on the right: (right, next_next_node.data)
-                    try updateFrequency(ipq, Pair.init(right, nnn.data), -1);
+                    try updateFrequency(allocator, ipq, Pair.init(right, nnn.data), -1);
                     // Increment the new pair on the right: (replacement, next_next_node.data)
-                    try updateFrequency(ipq, Pair.init(replacement, nnn.data), 1);
+                    try updateFrequency(allocator, ipq, Pair.init(replacement, nnn.data), 1);
                 }
-                if (prev_node) |pn| {
+                if (prev_node) |dl_pn| {
+                    const pn: *N = @fieldParentPtr("node", dl_pn);
                     // Increment the new pair on the left: (prev_node.data, replacement)
-                    try updateFrequency(ipq, Pair.init(pn.data, replacement), 1);
+                    try updateFrequency(allocator, ipq, Pair.init(pn.data, replacement), 1);
                 }
 
                 // 5. The current `node` (now containing `replacement`) is the "previous"
                 // node for the next iteration.
-                prev_node = node;
+                prev_node = dl_node;
                 current_node = next_next_node; // Move iterator to the node after the removed one
             } else {
                 // No match, just advance normally.
-                prev_node = node;
-                current_node = node.next;
+                prev_node = dl_node;
+                current_node = dl_node.next;
             }
         } else {
             // Reached the end of the list. No more pairs to check.
@@ -135,22 +147,18 @@ pub fn main() !void {
     }
 
     const file_path = args[1];
-    const file = try std.fs.cwd().openFile(file_path, .{});
+    const file = try std.fs.cwd().openFile(file_path, .{.mode = .read_only});
     defer file.close();
 
-    const file_size = try file.getEndPos();
-    try file.seekTo(0);
+    const max_file_size = 1 * 1024 * 1024 * 1024; // 1 GB
+    const file_contents = try file.readToEndAlloc(allocator, max_file_size);
+    defer allocator.free(file_contents);
 
-    const contents = try allocator.alloc(u8, file_size);
-    defer allocator.free(contents);
-
-    var reader = file.reader(contents);
-    _ = try reader.read(contents);
-
-    const data_as_u32 = try allocator.alloc(u32, file_size);
+    const data_as_u32 = try allocator.alloc(u32, file_contents.len);
     defer allocator.free(data_as_u32);
 
-    for (contents, 0..) |b, i| {
+    // TODO this shouldn't be needed right?
+    for (file_contents, 0..) |b, i| {
         data_as_u32[i] = b;
     }
 
@@ -163,14 +171,20 @@ pub fn main() !void {
     }
 
     // Manually create nodes and append them to the list.
+    // TODO this should be an array of nodes
     for (data_as_u32) |token| {
-        const node = try allocator.create(std.DoublyLinkedList.Node);
-        node.* = .{ .data = token };
-        list.append(node);
+        const node = try allocator.create(N);
+        node.data = token;
+        list.append(&node.node);
     }
 
-    const stdout = std.io.getStdOut().writer();
-    try stdout.print("File size: {d} bytes, DoublyLinkedList size: {d}\n", .{ file_size, list.len });
+    const output_buffer_size = 1024 * 1024; // 1 Kb
+    const output_buffer = try allocator.alloc(u8, output_buffer_size);
+    defer allocator.free(output_buffer);
+
+    const stdout = std.fs.File.stdout();
+    var writer = stdout.writer(output_buffer);
+    try writer.interface.print("File size: {d} bytes, DoublyLinkedList size: {d}\n", .{ file_contents.len, list.len() });
 
     // Steps
     // 1. Set up the main loop with the target token size
@@ -188,37 +202,40 @@ pub fn main() !void {
 
     // Create an instance of the IPQ.
     var ipq = IntIntMaxIPQ.init(allocator, {});
-    defer ipq.deinit();
+    defer ipq.deinit(allocator);
 
     while (current_token < target_token_size) {
         const step_start_time = std.time.nanoTimestamp();
         // When there's only one pair or less we cannot continue
-        if (list.len < 2) {
+        // TODO len is linear, need to track it
+        if (list.len() < 2) {
             break;
         }
 
         // When the ipq is empty it means we need to do a full iteration and count the frequencies
         if (ipq.isEmpty()) {
             const initial_count_start_time = std.time.nanoTimestamp();
-            try stdout.print("Initial count\n", .{});
+            try writer.interface.print("Initial count\n", .{});
             var current_node = list.first;
             while (current_node) |node| {
+                const node_parent: *N = @fieldParentPtr("node", node);
                 // Get the current and next tokens by looking at the next node
                 if (node.next) |next_node| {
-                    const pair = Pair.init(node.data, next_node.data);
+                    const next_node_parent: *N = @fieldParentPtr("node", next_node);
+                    const pair = Pair.init(node_parent.data, next_node_parent.data);
                     const freq_entry = ipq.get(pair);
 
                     if (freq_entry) |entry| {
                         _ = try ipq.changeValue(pair, entry.value + 1);
                     } else {
-                        _ = try ipq.push(pair, 1);
+                        _ = try ipq.push(allocator, pair, 1);
                     }
                 }
                 current_node = node.next;
             }
             const initial_count_end_time = std.time.nanoTimestamp();
             const initial_count_elapsed_nanoseconds = initial_count_end_time - initial_count_start_time;
-            try stdout.print("Initial count time elapsed: {} ms\n", .{@divTrunc(initial_count_elapsed_nanoseconds, std.time.ns_per_ms)});
+            try writer.interface.print("Initial count time elapsed: {} ms\n", .{@divTrunc(initial_count_elapsed_nanoseconds, std.time.ns_per_ms)});
         }
 
         // Get the most frequent pair
@@ -227,21 +244,21 @@ pub fn main() !void {
 
         // do the replacement and modify the ipq as we go
         mergePairs(TokenType, &list, allocator, &ipq, most_frequent_pair.first, most_frequent_pair.second, current_token) catch {
-            try stdout.print("Error during merging pairs\n", .{});
+            try writer.interface.print("Error during merging pairs\n", .{});
             break;
         };
 
         // debug print the most frequent pair
-        try stdout.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent.value });
+        try writer.interface.print("Most frequent pair so far: ({d}, {d}) with frequency {d}\n", .{ most_frequent_pair.first, most_frequent_pair.second, most_frequent.value });
         current_token += 1;
 
         const step_end_time = std.time.nanoTimestamp();
         const step_elapsed_nanoseconds = step_end_time - step_start_time;
-        try stdout.print("Step time elapsed: {} ms\n", .{@divTrunc(step_elapsed_nanoseconds, std.time.ns_per_ms)});
+        try writer.interface.print("Step time elapsed: {} ms\n", .{@divTrunc(step_elapsed_nanoseconds, std.time.ns_per_ms)});
     }
 
     const end_time = std.time.nanoTimestamp();
     const elapsed_nanoseconds = end_time - start_time;
     std.debug.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds, std.time.ns_per_ms)});
-    try stdout.print("File size: {d} bytes, DoublyLinkedList size: {d}\n", .{ file_size, list.len });
+    try writer.interface.print("File size: {d} bytes, DoublyLinkedList size: {d}\n", .{ file_contents.len, list.len() });
 }
