@@ -255,10 +255,12 @@ pub fn main() !void {
         const step_end_time = std.time.nanoTimestamp();
         const step_elapsed_nanoseconds = step_end_time - step_start_time;
         try writer.interface.print("Step time elapsed: {} ms\n", .{@divTrunc(step_elapsed_nanoseconds, std.time.ns_per_ms)});
+        try writer.interface.flush();
     }
 
     const end_time = std.time.nanoTimestamp();
     const elapsed_nanoseconds = end_time - start_time;
-    std.debug.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds, std.time.ns_per_ms)});
+    try writer.interface.print("Total time elapsed: {} ms\n", .{@divTrunc(elapsed_nanoseconds, std.time.ns_per_ms)});
     try writer.interface.print("File size: {d} bytes, DoublyLinkedList size: {d}\n", .{ file_contents.len, list.len() });
+    try writer.interface.flush();
 }
