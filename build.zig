@@ -5,13 +5,13 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const module = b.createModule(.{
-        .root_source_file = b.path("code/zigbpe.zig"),
+        .root_source_file = b.path("code/basic.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const exe = b.addExecutable(.{
-        .name = "zigbpe",
+    const basic_exe = b.addExecutable(.{
+        .name = "basic",
         .root_module = module,
     });
 
@@ -20,17 +20,17 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     const ipq_module = ipq_dep.module("indexed_priority_queue");
-    exe.root_module.addImport("indexed_priority_queue", ipq_module);
+    basic_exe.root_module.addImport("indexed_priority_queue", ipq_module);
 
-    const run_cmd = b.addRunArtifact(exe);
+    const run_cmd = b.addRunArtifact(basic_exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
 
-    exe.root_module.addImport("indexed_heap_queue", ipq_module);
+    basic_exe.root_module.addImport("indexed_heap_queue", ipq_module);
 
-    b.installArtifact(exe);
+    b.installArtifact(basic_exe);
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);

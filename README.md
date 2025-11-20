@@ -10,7 +10,13 @@ Byte Pair Encoding is a data compression technique that iteratively replaces the
 
 The core of the implementation is in `code/zigbpe.zig`. It reads a text file, and then iteratively merges the most frequent pair of tokens into a new token.
 
-A key data structure is the `SkippingList`, found in `code/skipping_list.zig`. This is a custom data structure that allows for efficient merging of tokens. When a pair of tokens is merged, the second token in the pair is not removed from the list, but instead marked as "skipped". This is done by using the high bits of the token to store a "skip" value. This avoids costly memory reallocations and makes the merging process very fast.
+## Assumptions
+
+There are two distinct starting points to consider when implementing tokenization training. Firstly you can train on the entire data set as a single block of text; this is the approach used in Karpathy's initial implementation in [minbpe](https://github.com/karpathy/minbpe) which is for pedagogical purposes. See `basic.py`. This is the method used by SentencePiece, but not by most GPT family tokenizers.
+
+The second method is train on the split text, based on pre-processing using a regular expression.
+
+As such optimizing a trainer depends on which of these methods is used as the charactistics of the resulting workload is very different.
 
 ## Building and Running
 
