@@ -4,7 +4,13 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Dependency setup (used by both executables)
+    // Dependency setup
+    
+    const pcre2_dep = b.dependency("pcre2", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const ipq_dep = b.dependency("indexed_priority_queue", .{
         .target = target,
         .optimize = optimize,
@@ -41,10 +47,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
     const regex_exe = b.addExecutable(.{
         .name = "regex",
         .root_module = regex_module,
     });
+    regex_exe.linkLibrary(pcre2_dep.artifact("pcre2-8"));
+
     regex_exe.root_module.addImport("indexed_priority_queue", ipq_module);
     regex_exe.root_module.addImport("indexed_heap_queue", ipq_module); // Assuming this is intentional
     b.installArtifact(regex_exe);

@@ -1,5 +1,19 @@
 const std = @import("std");
 const IndexedPriorityQueue = @import("indexed_priority_queue");
+const c = @cImport({
+    @cDefine("PCRE2_CODE_UNIT_WIDTH", "8"); // Must be 8, 16, or 32
+    @cInclude("pcre2.h");
+});
+
+// GPT-2 Pattern
+const GPT2_SPLIT_PATTERN: []const u8 =
+    \\'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
+;
+
+// GPT-4 Pattern
+const GPT4_SPLIT_PATTERN: []const u8 =
+    \\'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+
+;
 
 // Type to use for our DL list of nodes
 const N = struct {
@@ -157,7 +171,34 @@ pub fn main() !void {
     const data_as_u32 = try allocator.alloc(u32, file_contents.len);
     defer allocator.free(data_as_u32);
 
-    std.debug.print("Hello mom!\n", .{});
+    std.debug.print("Splitting string...\n", .{});
+
+    var error_number: c_int = 0;
+    var error_offset: usize = 0;
+
+    const pcre2_compiled_pattern = c.pcre2_compile_8(
+        GPT4_SPLIT_PATTERN.ptr,
+        GPT4_SPLIT_PATTERN.len,
+        0,
+        &error_number,
+        &error_offset,
+        null,
+    );
+    if (pcre2_compiled_pattern == null) {
+        std.debug.print("PCRE2 compilation failed at offset {d}\n", .{error_offset});
+        return;
+    }
+    defer c.pcre2_code_free_8(pcre2_compiled_pattern);
+
+    const jit_errorcode = c.pcre2_jit_compile_8(pcre2_compiled_pattern, c.PCRE2_JIT_COMPLETE);
+    if (jit_errorcode < 0) {
+        var buffer: [256]u8 = undefined;
+        const c1 = c.pcre2_get_error_message_8(jit_errorcode, &buffer, buffer.len);
+        if (c1 > 0) {
+            std.debug.print("Warning: PCRE2 JIT compilation failed: {s}\n", .{buffer[0..@intCast(c1)]});
+        }
+        return;
+    }
 
     // // TODO this shouldn't be needed right?
     // for (file_contents, 0..) |b, i| {

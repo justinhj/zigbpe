@@ -6,6 +6,10 @@
             .url = "git+https://github.com/justinhj/indexed_priority_queue.git#c5be608fdfa12f30bc448e258df92f8936b7aa86",
             .hash = "indexed_priority_queue-0.0.5-zqbyeysxAACPfd52n6soK4zwiN_3NrgfBX0w4fcORqvt",
         },
+        .pcre2 = .{
+            .url = "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.gz",
+            .hash = "N-V-__8AACsQywAxzz2irB4p1ssU5F43ChN0ztDcy_GRz_Hz",
+        },
     },
     .paths = .{
         "build.zig",
