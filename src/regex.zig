@@ -171,7 +171,7 @@ pub fn main() !void {
     const data_as_u32 = try allocator.alloc(u32, file_contents.len);
     defer allocator.free(data_as_u32);
 
-    std.debug.print("Splitting string...\n", .{});
+    std.debug.print("Preparing pcre2 ...\n", .{});
 
     var error_number: c_int = 0;
     var error_offset: usize = 0;
@@ -199,6 +199,8 @@ pub fn main() !void {
         }
         return;
     }
+
+    std.debug.print("Splitting string...\n", .{});
 
     // // TODO this shouldn't be needed right?
     // for (file_contents, 0..) |b, i| {
