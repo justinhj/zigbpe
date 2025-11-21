@@ -1,0 +1,1 @@
+A small text that is useful to demonstrate the GPT4 regex splitter. Very nice, eh?

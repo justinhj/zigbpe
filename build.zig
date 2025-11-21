@@ -45,6 +45,7 @@ pub fn build(b: *std.Build) void {
         .root_module = regex_module,
     });
     regex_exe.linkSystemLibrary("pcre2-8");
+    regex_exe.linkLibC();
 
     regex_exe.root_module.addImport("indexed_priority_queue", ipq_module);
     regex_exe.root_module.addImport("indexed_heap_queue", ipq_module); // Assuming this is intentional

@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 const IndexedPriorityQueue = @import("indexed_priority_queue");
 const c = @cImport({
     @cDefine("PCRE2_CODE_UNIT_WIDTH", "8"); // Must be 8, 16, or 32
@@ -200,7 +201,60 @@ pub fn main() !void {
         return;
     }
 
+    const match_data = c.pcre2_match_data_create_from_pattern_8(pcre2_compiled_pattern, null);
+
+    if (match_data == null) {
+        return error.OutOfMemory; 
+    }
+    defer c.pcre2_match_data_free_8(match_data);
+
+    const general_context_pcre2 = c.pcre2_general_context_create_8(null, null, null);
+    const match_context_pcre2 = c.pcre2_match_context_create_8(general_context_pcre2);
+
     std.debug.print("Splitting string...\n", .{});
+
+    var chunks = try ArrayList([]u8).initCapacity(allocator, 128);
+    defer chunks.deinit(allocator);
+
+    var rc: c_int = undefined;
+    var start_offset: usize = 0;
+    while (true) {
+        rc = c.pcre2_match_8(
+            pcre2_compiled_pattern,
+            file_contents.ptr,
+            file_contents.len,
+            start_offset,
+            c.PCRE2_NO_UTF_CHECK,
+            match_data,
+            match_context_pcre2);
+
+        if (rc == c.PCRE2_ERROR_NOMATCH) {
+            break;
+        }
+        if (rc < 0) {
+            std.debug.print("PCRE2 Error: {d}\n", .{rc});
+            break;
+        }
+
+        const ovector = c.pcre2_get_ovector_pointer_8(match_data);
+    
+        // ovector[0] is start of match, ovector[1] is end of match
+        const match_start = ovector[0];
+        const match_end = ovector[1];
+
+        // ... Do something with your match here ...
+        std.debug.print("Match: {s}\n", .{file_contents[match_start..match_end]});
+
+        // 5. CRITICAL: Advance the offset for the next loop iteration
+        start_offset = match_end;
+        
+        // Safety check: Prevent infinite loop on empty matches (e.g. patterns like "a*")
+        if (match_end == match_start) {
+            start_offset += 1;
+            // Boundary check to prevent reading past end of buffer
+            if (start_offset > file_contents.len) break; 
+        }
+    }
 
     // // TODO this shouldn't be needed right?
     // for (file_contents, 0..) |b, i| {
