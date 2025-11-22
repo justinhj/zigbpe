@@ -1,6 +1,8 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
+const StringHashMap = std.StringHashMap;
 const IndexedPriorityQueue = @import("indexed_priority_queue");
+
 const c = @cImport({
     @cDefine("PCRE2_CODE_UNIT_WIDTH", "8"); // Must be 8, 16, or 32
     @cInclude("pcre2.h");
@@ -216,6 +218,10 @@ pub fn main() !void {
     var chunks = try ArrayList([]u8).initCapacity(allocator, 128);
     defer chunks.deinit(allocator);
 
+    // Gather a hashmap of word frequency as we split it up
+    var word_freq = StringHashMap(usize).init(allocator);
+    defer word_freq.deinit();
+
     var rc: c_int = undefined;
     var start_offset: usize = 0;
     while (true) {
@@ -242,16 +248,20 @@ pub fn main() !void {
         const match_start = ovector[0];
         const match_end = ovector[1];
 
-        // ... Do something with your match here ...
-        std.debug.print("Match: {s}\n", .{file_contents[match_start..match_end]});
+        const match = file_contents[match_start..match_end];
+        const result = try word_freq.getOrPut(match);
+        if (result.found_existing) {
+            result.value_ptr.* = result.value_ptr.* + 1;
+            std.debug.print("Match: {s} Count: {d}\n", .{match, result.value_ptr.*});
+        } else {
+            std.debug.print("Match: {s} Count: 1\n", .{match});
+            result.value_ptr.* = 1;
+        }
 
-        // 5. CRITICAL: Advance the offset for the next loop iteration
         start_offset = match_end;
         
-        // Safety check: Prevent infinite loop on empty matches (e.g. patterns like "a*")
         if (match_end == match_start) {
             start_offset += 1;
-            // Boundary check to prevent reading past end of buffer
             if (start_offset > file_contents.len) break; 
         }
     }

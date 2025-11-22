@@ -1,1 +1,3 @@
-A small text that is useful to demonstrate the GPT4 regex splitter. Very nice, eh?
+A small text that is nice and useful to demonstrate the GPT4 regex splitter. Very nice of the world to provide this, eh?
+
+Monkey, Monkey, Monkey appears three times, three times indeed, three amazing occurences.
