@@ -24,6 +24,7 @@ const N = struct {
     node: std.DoublyLinkedList.Node,
 };
 
+
 /// Helper function to incrementally update pair frequencies in the IPQ.
 /// It handles adding, incrementing, and decrementing pair counts.
 fn updateFrequency(
@@ -224,6 +225,7 @@ pub fn main() !void {
 
     var rc: c_int = undefined;
     var start_offset: usize = 0;
+
     while (true) {
         rc = c.pcre2_match_8(
             pcre2_compiled_pattern,
@@ -252,9 +254,7 @@ pub fn main() !void {
         const result = try word_freq.getOrPut(match);
         if (result.found_existing) {
             result.value_ptr.* = result.value_ptr.* + 1;
-            std.debug.print("Match: {s} Count: {d}\n", .{match, result.value_ptr.*});
         } else {
-            std.debug.print("Match: {s} Count: 1\n", .{match});
             result.value_ptr.* = 1;
         }
 
@@ -265,6 +265,8 @@ pub fn main() !void {
             if (start_offset > file_contents.len) break; 
         }
     }
+
+    std.debug.print("Number of distinct words: {d}\n", .{word_freq.count()});
 
     // // TODO this shouldn't be needed right?
     // for (file_contents, 0..) |b, i| {

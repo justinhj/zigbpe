@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
 
     // --- 'basic' executable ---
     const basic_module = b.createModule(.{
-        .root_source_file = b.path("code/basic.zig"),
+        .root_source_file = b.path("src/basic.zig"),
         .target = target,
         .optimize = optimize,
     });
