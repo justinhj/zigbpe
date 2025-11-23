@@ -3,10 +3,8 @@ const ArrayList = std.ArrayList;
 const StringHashMap = std.StringHashMap;
 const IndexedPriorityQueue = @import("indexed_priority_queue");
 
-const c = @cImport({
-    @cDefine("PCRE2_CODE_UNIT_WIDTH", "8"); // Must be 8, 16, or 32
-    @cInclude("pcre2.h");
-});
+const pcre2_matcher = @import("pcre2_matcher.zig");
+const c = pcre2_matcher.c;
 
 // GPT-2 Pattern
 const GPT2_SPLIT_PATTERN: []const u8 =
@@ -177,24 +175,28 @@ pub fn main() !void {
 
     std.debug.print("Preparing pcre2 ...\n", .{});
 
-    var error_number: c_int = 0;
-    var error_offset: usize = 0;
+    var matcher = try pcre2_matcher.init(GPT4_SPLIT_PATTERN); 
+    defer matcher.deinit();
 
-    const pcre2_compiled_pattern = c.pcre2_compile_8(
-        GPT4_SPLIT_PATTERN.ptr,
-        GPT4_SPLIT_PATTERN.len,
-        0,
-        &error_number,
-        &error_offset,
-        null,
-    );
-    if (pcre2_compiled_pattern == null) {
-        std.debug.print("PCRE2 compilation failed at offset {d}\n", .{error_offset});
-        return;
-    }
-    defer c.pcre2_code_free_8(pcre2_compiled_pattern);
 
-    const jit_errorcode = c.pcre2_jit_compile_8(pcre2_compiled_pattern, c.PCRE2_JIT_COMPLETE);
+//     var error_number: c_int = 0;
+//     var error_offset: usize = 0;
+
+//     const pcre2_compiled_pattern = c.pcre2_compile_8(
+//         GPT4_SPLIT_PATTERN.ptr,
+//         GPT4_SPLIT_PATTERN.len,
+//         0,
+//         &error_number,
+//         &error_offset,
+//         null,
+//     );
+//     if (pcre2_compiled_pattern == null) {
+//         std.debug.print("PCRE2 compilation failed at offset {d}\n", .{error_offset});
+//         return;
+//     }
+//     defer c.pcre2_code_free_8(pcre2_compiled_pattern);
+
+    const jit_errorcode = c.pcre2_jit_compile_8(matcher.compiled_pattern, c.PCRE2_JIT_COMPLETE);
     if (jit_errorcode < 0) {
         var buffer: [256]u8 = undefined;
         const c1 = c.pcre2_get_error_message_8(jit_errorcode, &buffer, buffer.len);
@@ -204,7 +206,7 @@ pub fn main() !void {
         return;
     }
 
-    const match_data = c.pcre2_match_data_create_from_pattern_8(pcre2_compiled_pattern, null);
+    const match_data = c.pcre2_match_data_create_from_pattern_8(matcher.compiled_pattern, null);
 
     if (match_data == null) {
         return error.OutOfMemory; 
@@ -228,7 +230,7 @@ pub fn main() !void {
 
     while (true) {
         rc = c.pcre2_match_8(
-            pcre2_compiled_pattern,
+            matcher.compiled_pattern,
             file_contents.ptr,
             file_contents.len,
             start_offset,
