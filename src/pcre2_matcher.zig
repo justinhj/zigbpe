@@ -1,5 +1,6 @@
 // Manage pcre2 regex matching
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 pub const c = @cImport({
     @cDefine("PCRE2_CODE_UNIT_WIDTH", "8");
@@ -7,16 +8,17 @@ pub const c = @cImport({
 });
 
 compiled_pattern: ?*c.pcre2_code_8 = null,
+allocator: Allocator,
 
 const PCRE2_Matcher = @This();
 const Self = @This();
 
-const PCRE2_Errors = error {
+const PCRE2_Errors = error{
     FailedToCompileRegex,
     JITCompilationFailed,
 };
 
-pub fn init(regex : []const u8) PCRE2_Errors!PCRE2_Matcher {
+pub fn init(allocator: Allocator, regex: []const u8) PCRE2_Errors!PCRE2_Matcher {
     var error_number: c_int = 0;
     var error_offset: usize = 0;
 
@@ -29,7 +31,7 @@ pub fn init(regex : []const u8) PCRE2_Errors!PCRE2_Matcher {
         null,
     );
     if (pcre2_compiled_pattern == null) {
-        std.debug.print("PCRE2 compilation failed with error code {d} at offset {d}\n", .{error_number, error_offset});
+        std.debug.print("PCRE2 compilation failed with error code {d} at offset {d}\n", .{ error_number, error_offset });
         return PCRE2_Errors.FailedToCompileRegex;
     }
     const jit_errorcode = c.pcre2_jit_compile_8(pcre2_compiled_pattern, c.PCRE2_JIT_COMPLETE);
@@ -41,9 +43,7 @@ pub fn init(regex : []const u8) PCRE2_Errors!PCRE2_Matcher {
         }
         return PCRE2_Errors.JITCompilationFailed;
     }
-    return .{
-       .compiled_pattern = pcre2_compiled_pattern.?
-    };
+    return .{ .allocator = allocator, .compiled_pattern = pcre2_compiled_pattern.? };
 }
 
 pub fn deinit(self: *Self) void {

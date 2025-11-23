@@ -22,7 +22,6 @@ const N = struct {
     node: std.DoublyLinkedList.Node,
 };
 
-
 /// Helper function to incrementally update pair frequencies in the IPQ.
 /// It handles adding, incrementing, and decrementing pair counts.
 fn updateFrequency(
@@ -163,7 +162,7 @@ pub fn main() !void {
     }
 
     const file_path = args[1];
-    const file = try std.fs.cwd().openFile(file_path, .{.mode = .read_only});
+    const file = try std.fs.cwd().openFile(file_path, .{ .mode = .read_only });
     defer file.close();
 
     const max_file_size = 1 * 1024 * 1024 * 1024; // 1 GB
@@ -175,12 +174,12 @@ pub fn main() !void {
 
     std.debug.print("Preparing pcre2 ...\n", .{});
 
-    var matcher = try pcre2_matcher.init(GPT4_SPLIT_PATTERN); 
+    var matcher = try pcre2_matcher.init(allocator, GPT4_SPLIT_PATTERN);
     defer matcher.deinit();
 
     const match_data = c.pcre2_match_data_create_from_pattern_8(matcher.compiled_pattern, null);
     if (match_data == null) {
-        return error.OutOfMemory; 
+        return error.OutOfMemory;
     }
     defer c.pcre2_match_data_free_8(match_data);
 
@@ -200,14 +199,7 @@ pub fn main() !void {
     var start_offset: usize = 0;
 
     while (true) {
-        rc = c.pcre2_match_8(
-            matcher.compiled_pattern,
-            file_contents.ptr,
-            file_contents.len,
-            start_offset,
-            c.PCRE2_NO_UTF_CHECK,
-            match_data,
-            match_context_pcre2);
+        rc = c.pcre2_match_8(matcher.compiled_pattern, file_contents.ptr, file_contents.len, start_offset, c.PCRE2_NO_UTF_CHECK, match_data, match_context_pcre2);
 
         if (rc == c.PCRE2_ERROR_NOMATCH) {
             break;
@@ -218,12 +210,15 @@ pub fn main() !void {
         }
 
         const ovector = c.pcre2_get_ovector_pointer_8(match_data);
-    
+
         // ovector[0] is start of match, ovector[1] is end of match
         const match_start = ovector[0];
         const match_end = ovector[1];
 
         const match = file_contents[match_start..match_end];
+
+        std.debug.print("{s}\n", .{match});
+
         const result = try word_freq.getOrPut(match);
         if (result.found_existing) {
             result.value_ptr.* = result.value_ptr.* + 1;
@@ -232,10 +227,10 @@ pub fn main() !void {
         }
 
         start_offset = match_end;
-        
+
         if (match_end == match_start) {
             start_offset += 1;
-            if (start_offset > file_contents.len) break; 
+            if (start_offset > file_contents.len) break;
         }
     }
 

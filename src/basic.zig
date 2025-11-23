@@ -147,7 +147,7 @@ pub fn main() !void {
     }
 
     const file_path = args[1];
-    const file = try std.fs.cwd().openFile(file_path, .{.mode = .read_only});
+    const file = try std.fs.cwd().openFile(file_path, .{ .mode = .read_only });
     defer file.close();
 
     const max_file_size = 1 * 1024 * 1024 * 1024; // 1 GB
@@ -162,7 +162,7 @@ pub fn main() !void {
         data_as_u32[i] = b;
     }
 
-    var list : std.DoublyLinkedList = .{};
+    var list: std.DoublyLinkedList = .{};
     // Defer freeing all nodes that were allocated for the list.
     defer {
         while (list.popFirst()) |node| {
