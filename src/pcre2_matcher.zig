@@ -46,8 +46,7 @@ fn private_free(ptr: ?*anyopaque, memdata: ?*anyopaque) callconv(.c) void {
     const start_addr = data_ptr - HEADER_SIZE;
     const raw_ptr = @as([*]u8, @ptrFromInt(start_addr));
 
-    // Read the size from the header
-    const header_ptr = @as(*usize, @ptrCast(raw_ptr));
+    const header_ptr = @as(*usize, @ptrCast(@alignCast(raw_ptr)));
     const total_size = header_ptr.*;
 
     // Reconstruct the slice and free it
