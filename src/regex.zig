@@ -141,17 +141,15 @@ fn maxHeapComparator(_: void, a: usize, b: usize) bool {
 }
 
 pub fn main() !void {
-    // 1. Create a backing allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const backing_allocator = gpa.allocator();
 
-    // 2. Create the Arena and its state
-    var arena_state = std.heap.ArenaAllocator.init(backing_allocator);
-    defer arena_state.deinit();
+    // var arena_state = std.heap.ArenaAllocator.init(backing_allocator);
+    // defer arena_state.deinit();
 
-    // 3. This is the allocator you will now use for all nodes and temporary allocations
-    const allocator = arena_state.allocator();
+    // const allocator = arena_state.allocator();
+    const allocator = backing_allocator;
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
