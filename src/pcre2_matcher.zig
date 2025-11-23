@@ -9,6 +9,7 @@ pub const c = @cImport({
 
 compiled_pattern: ?*c.pcre2_code_8 = null,
 allocator: Allocator,
+general_context: ?*c.pcre2_general_context_8,
 
 const PCRE2_Matcher = @This();
 const Self = @This();
@@ -18,9 +19,28 @@ const PCRE2_Errors = error{
     JITCompilationFailed,
 };
 
+fn private_malloc(size: usize, memdata: ?*anyopaque) callconv(.c) ?*anyopaque {
+    const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(memdata.?)));
+    const slice = allocator.alignedAlloc(u8, @alignOf(usize), size) catch return null;
+    std.debug.print("private malloc allocated {d} bytes at 0x{x}\n", .{size, slice.ptr});
+    return @as(*usize, @ptrCast(slice.ptr));
+}
+
+fn private_free(memory: ?*anyopaque, memdata: ?*anyopaque) callconv(.c) void {
+    const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(memdata.?)));
+    std.debug.print("private free 0x{x}\n", .{@intFromPtr(memory)});
+    return allocator.free(memory);
+}
+
 pub fn init(allocator: Allocator, regex: []const u8) PCRE2_Errors!PCRE2_Matcher {
     var error_number: c_int = 0;
     var error_offset: usize = 0;
+
+    const pcre2_general_context = c.pcre2_general_context_create_8(
+            private_malloc,
+            private_free,
+            @as(*usize, @ptrCast(@constCast(&allocator))),
+        );
 
     const pcre2_compiled_pattern = c.pcre2_compile_8(
         regex.ptr,
@@ -28,7 +48,7 @@ pub fn init(allocator: Allocator, regex: []const u8) PCRE2_Errors!PCRE2_Matcher 
         c.PCRE2_UTF,
         &error_number,
         &error_offset,
-        null,
+        pcre2_general_context,
     );
     if (pcre2_compiled_pattern == null) {
         std.debug.print("PCRE2 compilation failed with error code {d} at offset {d}\n", .{ error_number, error_offset });
@@ -43,7 +63,7 @@ pub fn init(allocator: Allocator, regex: []const u8) PCRE2_Errors!PCRE2_Matcher 
         }
         return PCRE2_Errors.JITCompilationFailed;
     }
-    return .{ .allocator = allocator, .compiled_pattern = pcre2_compiled_pattern.? };
+    return .{ .allocator = allocator, .compiled_pattern = pcre2_compiled_pattern.?, .general_context = null };
 }
 
 pub fn deinit(self: *Self) void {
