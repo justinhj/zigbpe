@@ -23,7 +23,7 @@ pub fn init(regex : []const u8) PCRE2_Errors!PCRE2_Matcher {
     const pcre2_compiled_pattern = c.pcre2_compile_8(
         regex.ptr,
         regex.len,
-        0,
+        c.PCRE2_UTF,
         &error_number,
         &error_offset,
         null,
