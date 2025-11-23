@@ -175,46 +175,19 @@ pub fn main() !void {
     var matcher = try pcre2_matcher.init(allocator, GPT4_SPLIT_PATTERN);
     defer matcher.deinit();
 
-    const match_data = c.pcre2_match_data_create_from_pattern_8(matcher.compiled_pattern, null);
-    if (match_data == null) {
-        return error.OutOfMemory;
-    }
-    defer c.pcre2_match_data_free_8(match_data);
-
-    const general_context_pcre2 = c.pcre2_general_context_create_8(null, null, null);
-    const match_context_pcre2 = c.pcre2_match_context_create_8(general_context_pcre2);
-
     std.debug.print("Splitting string...\n", .{});
 
     var chunks = try ArrayList([]u8).initCapacity(allocator, 128);
     defer chunks.deinit(allocator);
 
+    var iter = try matcher.iterator(file_contents);
+    defer iter.deinit();
+
     // Gather a hashmap of word frequency as we split it up
     var word_freq = StringHashMap(usize).init(allocator);
     defer word_freq.deinit();
 
-    var rc: c_int = undefined;
-    var start_offset: usize = 0;
-
-    while (true) {
-        rc = c.pcre2_match_8(matcher.compiled_pattern, file_contents.ptr, file_contents.len, start_offset, c.PCRE2_NO_UTF_CHECK, match_data, match_context_pcre2);
-
-        if (rc == c.PCRE2_ERROR_NOMATCH) {
-            break;
-        }
-        if (rc < 0) {
-            std.debug.print("PCRE2 Error: {d}\n", .{rc});
-            break;
-        }
-
-        const ovector = c.pcre2_get_ovector_pointer_8(match_data);
-
-        // ovector[0] is start of match, ovector[1] is end of match
-        const match_start = ovector[0];
-        const match_end = ovector[1];
-
-        const match = file_contents[match_start..match_end];
-
+    while (try iter.next()) |match| {
         // std.debug.print("{s}\n", .{match});
 
         const result = try word_freq.getOrPut(match);
@@ -222,13 +195,6 @@ pub fn main() !void {
             result.value_ptr.* = result.value_ptr.* + 1;
         } else {
             result.value_ptr.* = 1;
-        }
-
-        start_offset = match_end;
-
-        if (match_end == match_start) {
-            start_offset += 1;
-            if (start_offset > file_contents.len) break;
         }
     }
 

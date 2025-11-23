@@ -20,6 +20,8 @@ const PCRE2_Errors = error{
     FailedToCompileRegex,
     JITCompilationFailed,
     OutOfMemory,
+    MatchDataCreationFailure,
+    MatchContextCreationFailure,
 };
 
 const HEADER_SIZE = @sizeOf(usize);
@@ -108,3 +110,79 @@ pub fn deinit(self: *Self) void {
     c.pcre2_general_context_free_8(self.general_context);
     self.allocator.destroy(self.allocator_wrapper);
 }
+
+pub fn iterator(self: *const Self, subject: []const u8) PCRE2_Errors!Iterator {
+    const match_data = c.pcre2_match_data_create_from_pattern_8(self.compiled_pattern, self.general_context);
+    if (match_data == null) return PCRE2_Errors.MatchDataCreationFailure;
+
+    const match_context = c.pcre2_match_context_create_8(self.general_context);
+    if (match_context == null) {
+        c.pcre2_match_data_free_8(match_data);
+        return PCRE2_Errors.MatchContextCreationFailure;
+    }
+
+    return Iterator{
+        .parent = self,
+        .subject = subject,
+        .match_data = match_data,
+        .match_context = match_context,
+    };
+}
+
+pub const Iterator = struct {
+    parent: *const PCRE2_Matcher,
+    subject: []const u8,
+    match_data: ?*c.pcre2_match_data_8,
+    match_context: ?*c.pcre2_match_context_8,
+    current_offset: usize = 0,
+
+    pub fn deinit(self: *Iterator) void {
+        if (self.match_data) |md| c.pcre2_match_data_free_8(md);
+        if (self.match_context) |mc| c.pcre2_match_context_free_8(mc);
+        self.match_data = null;
+        self.match_context = null;
+    }
+
+    pub fn next(self: *Iterator) !?[]const u8 {
+        if (self.match_data == null) return null;
+
+        const rc = c.pcre2_match_8(
+            self.parent.compiled_pattern,
+            self.subject.ptr,
+            self.subject.len,
+            self.current_offset,
+            c.PCRE2_NO_UTF_CHECK,
+            self.match_data,
+            self.match_context,
+        );
+
+        if (rc == c.PCRE2_ERROR_NOMATCH) {
+            return null;
+        }
+
+        if (rc < 0) {
+            std.debug.print("PCRE2 matching error: {d}\n", .{rc});
+            return error.Pcre2MatchError;
+        }
+
+        const ovector = c.pcre2_get_ovector_pointer_8(self.match_data);
+        const match_start = ovector[0];
+        const match_end = ovector[1];
+
+        // Capture the slice
+        const match = self.subject[match_start..match_end];
+
+        // Advance offset
+        self.current_offset = match_end;
+
+        // Handle zero-length matches (e.g., boundaries \b or lookaheads)
+        // to prevent infinite loops.
+        if (match_end == match_start) {
+            self.current_offset += 1;
+            // Guard against going past EOF
+            if (self.current_offset > self.subject.len) return null;
+        }
+
+        return match;
+    }
+};
