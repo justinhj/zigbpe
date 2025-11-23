@@ -9,6 +9,7 @@ pub const c = @cImport({
 
 compiled_pattern: ?*c.pcre2_code_8 = null,
 allocator: Allocator,
+allocator_wrapper: *Allocator,
 general_context: ?*c.pcre2_general_context_8,
 
 const PCRE2_Matcher = @This();
@@ -49,8 +50,9 @@ fn private_free(ptr: ?*anyopaque, memdata: ?*anyopaque) callconv(.c) void {
     const header_ptr = @as(*usize, @ptrCast(@alignCast(raw_ptr)));
     const total_size = header_ptr.*;
 
-    // Reconstruct the slice and free it
-    const slice = raw_ptr[0..total_size];
+    const aligned_ptr = @as([*]align(@alignOf(usize)) u8, @ptrCast(@alignCast(raw_ptr)));
+    const slice = aligned_ptr[0..total_size];
+
     allocator.free(slice);
     return {};
 }
@@ -59,10 +61,14 @@ pub fn init(allocator: Allocator, regex: []const u8) PCRE2_Errors!PCRE2_Matcher 
     var error_number: c_int = 0;
     var error_offset: usize = 0;
 
+    const allocator_wrapper = allocator.create(Allocator) catch return PCRE2_Errors.OutOfMemory;
+    allocator_wrapper.* = allocator;
+    errdefer allocator.destroy(allocator_wrapper);
+
     const pcre2_general_context = c.pcre2_general_context_create_8(
             private_malloc,
             private_free,
-            @as(*usize, @ptrCast(@constCast(&allocator))),
+            @as(*usize, @ptrCast(@constCast(allocator_wrapper))),
         );
 
     const pcre2_compile_context = c.pcre2_compile_context_create_8(pcre2_general_context);
@@ -90,7 +96,7 @@ pub fn init(allocator: Allocator, regex: []const u8) PCRE2_Errors!PCRE2_Matcher 
         }
         return PCRE2_Errors.JITCompilationFailed;
     }
-    return .{ .allocator = allocator, .compiled_pattern = pcre2_compiled_pattern.?, .general_context = null };
+    return .{ .allocator = allocator, .allocator_wrapper = allocator_wrapper, .compiled_pattern = pcre2_compiled_pattern.?, .general_context = null };
 }
 
 pub fn deinit(self: *Self) void {
@@ -98,4 +104,6 @@ pub fn deinit(self: *Self) void {
         c.pcre2_code_free_8(p);
         self.compiled_pattern = null;
     }
+    c.pcre2_general_context_free_8(self.general_context);
+    self.allocator.destroy(self.allocator_wrapper);
 }
