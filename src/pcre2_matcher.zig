@@ -6,7 +6,7 @@ pub const c = @cImport({
     @cInclude("pcre2.h");
 });
 
-compiled_pattern: ?*c.pcre2_code_8,
+compiled_pattern: ?*c.pcre2_code_8 = null,
 
 const PCRE2_Matcher = @This();
 const Self = @This();
@@ -47,5 +47,8 @@ pub fn init(regex : []const u8) PCRE2_Errors!PCRE2_Matcher {
 }
 
 pub fn deinit(self: *Self) void {
-    c.pcre2_code_free_8(self.compiled_pattern);
+    if (self.compiled_pattern) |p| {
+        c.pcre2_code_free_8(p);
+        self.compiled_pattern = null;
+    }
 }
