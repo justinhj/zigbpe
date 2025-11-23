@@ -13,6 +13,7 @@ const Self = @This();
 
 const PCRE2_Errors = error {
     FailedToCompileRegex,
+    JITCompilationFailed,
 };
 
 pub fn init(regex : []const u8) PCRE2_Errors!PCRE2_Matcher {
@@ -30,6 +31,15 @@ pub fn init(regex : []const u8) PCRE2_Errors!PCRE2_Matcher {
     if (pcre2_compiled_pattern == null) {
         std.debug.print("PCRE2 compilation failed with error code {d} at offset {d}\n", .{error_number, error_offset});
         return PCRE2_Errors.FailedToCompileRegex;
+    }
+    const jit_errorcode = c.pcre2_jit_compile_8(pcre2_compiled_pattern, c.PCRE2_JIT_COMPLETE);
+    if (jit_errorcode < 0) {
+        var buffer: [256]u8 = undefined;
+        const error_message_len = c.pcre2_get_error_message_8(jit_errorcode, &buffer, buffer.len);
+        if (error_message_len > 0) {
+            std.debug.print("Warning: PCRE2 JIT compilation failed: {s}\n", .{buffer[0..@intCast(error_message_len)]});
+        }
+        return PCRE2_Errors.JITCompilationFailed;
     }
     return .{
        .compiled_pattern = pcre2_compiled_pattern.?
