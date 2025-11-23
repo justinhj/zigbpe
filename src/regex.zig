@@ -215,7 +215,7 @@ pub fn main() !void {
 
         const match = file_contents[match_start..match_end];
 
-        std.debug.print("{s}\n", .{match});
+        // std.debug.print("{s}\n", .{match});
 
         const result = try word_freq.getOrPut(match);
         if (result.found_existing) {

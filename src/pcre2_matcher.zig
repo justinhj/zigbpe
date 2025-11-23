@@ -11,6 +11,7 @@ compiled_pattern: ?*c.pcre2_code_8 = null,
 allocator: Allocator,
 allocator_wrapper: *Allocator,
 general_context: ?*c.pcre2_general_context_8,
+compile_context: ?*c.pcre2_compile_context_8,
 
 const PCRE2_Matcher = @This();
 const Self = @This();
@@ -27,10 +28,10 @@ fn private_malloc(size: usize, memdata: ?*anyopaque) callconv(.c) ?*anyopaque {
     const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(memdata.?)));
     const total_size = size + HEADER_SIZE;
     const alignment = comptime std.mem.Alignment.fromByteUnits(@alignOf(usize));
-    
+
     const slice = allocator.alignedAlloc(u8, alignment, total_size) catch return null;
-    std.debug.print("private malloc allocated requested {d} actual {d} bytes at 0x{x}\n", .{ size, total_size, @intFromPtr(slice.ptr) });
-    
+    // std.debug.print("private malloc allocated requested {d} actual {d} bytes at 0x{x}\n", .{ size, total_size, @intFromPtr(slice.ptr) });
+
     const header_ptr = @as(*usize, @ptrCast(slice.ptr));
     header_ptr.* = total_size;
 
@@ -41,7 +42,7 @@ fn private_free(ptr: ?*anyopaque, memdata: ?*anyopaque) callconv(.c) void {
     if (ptr == null) return {};
 
     const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(memdata.?)));
-    std.debug.print("private free 0x{x}\n", .{@intFromPtr(ptr)});
+    // std.debug.print("private free 0x{x}\n", .{@intFromPtr(ptr)});
 
     const data_ptr = @intFromPtr(ptr.?);
     const start_addr = data_ptr - HEADER_SIZE;
@@ -66,14 +67,13 @@ pub fn init(allocator: Allocator, regex: []const u8) PCRE2_Errors!PCRE2_Matcher 
     errdefer allocator.destroy(allocator_wrapper);
 
     const pcre2_general_context = c.pcre2_general_context_create_8(
-            private_malloc,
-            private_free,
-            @as(*usize, @ptrCast(@constCast(allocator_wrapper))),
-        );
+        private_malloc,
+        private_free,
+        @as(*usize, @ptrCast(@constCast(allocator_wrapper))),
+    );
 
     const pcre2_compile_context = c.pcre2_compile_context_create_8(pcre2_general_context);
     if (pcre2_compile_context == null) return PCRE2_Errors.OutOfMemory;
-    defer c.pcre2_compile_context_free_8(pcre2_compile_context);
 
     const pcre2_compiled_pattern = c.pcre2_compile_8(
         regex.ptr,
@@ -96,7 +96,7 @@ pub fn init(allocator: Allocator, regex: []const u8) PCRE2_Errors!PCRE2_Matcher 
         }
         return PCRE2_Errors.JITCompilationFailed;
     }
-    return .{ .allocator = allocator, .allocator_wrapper = allocator_wrapper, .compiled_pattern = pcre2_compiled_pattern.?, .general_context = null };
+    return .{ .allocator = allocator, .allocator_wrapper = allocator_wrapper, .compiled_pattern = pcre2_compiled_pattern.?, .general_context = pcre2_general_context, .compile_context = pcre2_compile_context };
 }
 
 pub fn deinit(self: *Self) void {
@@ -104,6 +104,7 @@ pub fn deinit(self: *Self) void {
         c.pcre2_code_free_8(p);
         self.compiled_pattern = null;
     }
+    c.pcre2_compile_context_free_8(self.compile_context);
     c.pcre2_general_context_free_8(self.general_context);
     self.allocator.destroy(self.allocator_wrapper);
 }
