@@ -30,7 +30,7 @@ pub fn build(b: *std.Build) void {
         run_basic_cmd.addArgs(args);
     }
     // The default `zig build run` will execute 'basic'
-    const run_step = b.step("run", "Run the basic app");
+    const run_step = b.step("run-basic", "Run the basic app");
     run_step.dependOn(&run_basic_cmd.step);
 
     // --- 'regex' executable ---

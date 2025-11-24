@@ -4,7 +4,6 @@ const StringHashMap = std.StringHashMap;
 const IndexedPriorityQueue = @import("indexed_priority_queue");
 
 const pcre2_matcher = @import("pcre2_matcher.zig");
-const c = pcre2_matcher.c;
 
 // GPT-2 Pattern
 const GPT2_SPLIT_PATTERN: []const u8 =

@@ -169,14 +169,10 @@ pub const Iterator = struct {
         const match_start = ovector[0];
         const match_end = ovector[1];
 
-        // Capture the slice
         const match = self.subject[match_start..match_end];
-
-        // Advance offset
         self.current_offset = match_end;
 
-        // Handle zero-length matches (e.g., boundaries \b or lookaheads)
-        // to prevent infinite loops.
+        // prevent infinite loops
         if (match_end == match_start) {
             self.current_offset += 1;
             // Guard against going past EOF
