@@ -21,7 +21,6 @@ pub fn build(b: *std.Build) void {
         .root_module = basic_module,
     });
     basic_exe.root_module.addImport("indexed_priority_queue", ipq_module);
-    basic_exe.root_module.addImport("indexed_heap_queue", ipq_module); // Assuming this is intentional
     b.installArtifact(basic_exe);
 
     const run_basic_cmd = b.addRunArtifact(basic_exe);
@@ -48,7 +47,6 @@ pub fn build(b: *std.Build) void {
     regex_exe.linkLibC();
 
     regex_exe.root_module.addImport("indexed_priority_queue", ipq_module);
-    regex_exe.root_module.addImport("indexed_heap_queue", ipq_module); // Assuming this is intentional
     b.installArtifact(regex_exe);
 
     const run_regex_cmd = b.addRunArtifact(regex_exe);
